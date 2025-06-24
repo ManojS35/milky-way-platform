@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,18 +13,52 @@ type UserRole = 'admin' | 'buyer' | 'milkman' | null;
 const Index = () => {
   const [currentUser, setCurrentUser] = useState<{ role: UserRole; name: string } | null>(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [isSignup, setIsSignup] = useState(false);
+  const [signupForm, setSignupForm] = useState({ 
+    username: '', 
+    email: '', 
+    password: '', 
+    confirmPassword: '', 
+    role: '' as UserRole 
+  });
 
   const handleLogin = (role: UserRole, name: string) => {
     setCurrentUser({ role, name });
   };
 
+  const handleSignup = () => {
+    if (signupForm.password !== signupForm.confirmPassword) {
+      alert('Passwords do not match!');
+      return;
+    }
+    if (!signupForm.username || !signupForm.email || !signupForm.password || !signupForm.role) {
+      alert('Please fill all fields!');
+      return;
+    }
+    // Simulate successful signup
+    setCurrentUser({ role: signupForm.role, name: signupForm.username });
+    setSignupForm({ username: '', email: '', password: '', confirmPassword: '', role: '' as UserRole });
+    setIsSignup(false);
+  };
+
   const handleLogout = () => {
     setCurrentUser(null);
     setLoginForm({ email: '', password: '' });
+    setSignupForm({ username: '', email: '', password: '', confirmPassword: '', role: '' as UserRole });
+    setIsSignup(false);
   };
 
   if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} loginForm={loginForm} setLoginForm={setLoginForm} />;
+    return <LoginPage 
+      onLogin={handleLogin} 
+      loginForm={loginForm} 
+      setLoginForm={setLoginForm}
+      isSignup={isSignup}
+      setIsSignup={setIsSignup}
+      signupForm={signupForm}
+      setSignupForm={setSignupForm}
+      handleSignup={handleSignup}
+    />;
   }
 
   switch (currentUser.role) {
@@ -36,11 +69,20 @@ const Index = () => {
     case 'milkman':
       return <MilkmanDashboard user={currentUser} onLogout={handleLogout} />;
     default:
-      return <LoginPage onLogin={handleLogin} loginForm={loginForm} setLoginForm={setLoginForm} />;
+      return <LoginPage 
+        onLogin={handleLogin} 
+        loginForm={loginForm} 
+        setLoginForm={setLoginForm}
+        isSignup={isSignup}
+        setIsSignup={setIsSignup}
+        signupForm={signupForm}
+        setSignupForm={setSignupForm}
+        handleSignup={handleSignup}
+      />;
   }
 };
 
-const LoginPage = ({ onLogin, loginForm, setLoginForm }: any) => {
+const LoginPage = ({ onLogin, loginForm, setLoginForm, isSignup, setIsSignup, signupForm, setSignupForm, handleSignup }: any) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -51,54 +93,143 @@ const LoginPage = ({ onLogin, loginForm, setLoginForm }: any) => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Welcome Back</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <CardTitle>{isSignup ? 'Create Account' : 'Welcome Back'}</CardTitle>
+            <CardDescription>
+              {isSignup ? 'Sign up for your account' : 'Sign in to your account'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              />
-            </div>
+            {!isSignup ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label>Demo Login (Select Role)</Label>
-              <div className="grid grid-cols-1 gap-2">
-                <Button 
-                  onClick={() => onLogin('admin', 'Admin User')}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  Login as Admin
+                <div className="space-y-2">
+                  <Label>Demo Login (Select Role)</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button 
+                      onClick={() => onLogin('admin', 'Admin User')}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Login as Admin
+                    </Button>
+                    <Button 
+                      onClick={() => onLogin('buyer', 'John Buyer')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Login as Milk Buyer
+                    </Button>
+                    <Button 
+                      onClick={() => onLogin('milkman', 'Ramesh Milkman')}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Login as Milkman
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">
+                    Don't have an account?{' '}
+                    <button 
+                      onClick={() => setIsSignup(true)}
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Sign up
+                    </button>
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Enter your username"
+                    value={signupForm.username}
+                    onChange={(e) => setSignupForm({ ...signupForm, username: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={signupForm.email}
+                    onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Password</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={signupForm.password}
+                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={signupForm.confirmPassword}
+                    onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select onValueChange={(value) => setSignupForm({ ...signupForm, role: value as UserRole })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="buyer">Milk Buyer</SelectItem>
+                      <SelectItem value="milkman">Milkman</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button onClick={handleSignup} className="w-full">
+                  Sign Up
                 </Button>
-                <Button 
-                  onClick={() => onLogin('buyer', 'John Buyer')}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Login as Milk Buyer
-                </Button>
-                <Button 
-                  onClick={() => onLogin('milkman', 'Ramesh Milkman')}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Login as Milkman
-                </Button>
-              </div>
-            </div>
+
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">
+                    Already have an account?{' '}
+                    <button 
+                      onClick={() => setIsSignup(false)}
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Sign in
+                    </button>
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
