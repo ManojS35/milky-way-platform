@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +53,9 @@ interface Milkman {
 const Index = () => {
   const { toast } = useToast();
   
+  // Authorized admin emails/usernames - only these can access admin features
+  const AUTHORIZED_ADMINS = ['admin@dairy.com', 'admin', 'owner@dairy.com'];
+  
   // Global state for users, orders, and milkmen
   const [users, setUsers] = useState<User[]>([
     { id: 1, username: 'admin', email: 'admin@dairy.com', role: 'admin' },
@@ -86,8 +90,25 @@ const Index = () => {
     location: ''
   });
 
+  const isAuthorizedAdmin = (email: string, username: string) => {
+    return AUTHORIZED_ADMINS.includes(email.toLowerCase()) || AUTHORIZED_ADMINS.includes(username.toLowerCase());
+  };
+
   const handleLogin = (role: UserRole, username: string) => {
     const user = users.find(u => u.username === username) || { id: 1, username, email: '', role };
+    
+    // Check if trying to login as admin
+    if (role === 'admin') {
+      if (!isAuthorizedAdmin(user.email || '', username)) {
+        toast({
+          title: "Access Denied",
+          description: "You are not authorized to access admin features. Contact the system administrator.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    
     setCurrentUser(user);
     toast({
       title: "Login Successful",
@@ -111,6 +132,18 @@ const Index = () => {
         variant: "destructive"
       });
       return;
+    }
+
+    // Prevent admin signup unless authorized
+    if (signupForm.role === 'admin') {
+      if (!isAuthorizedAdmin(signupForm.email, signupForm.username)) {
+        toast({
+          title: "Access Denied",
+          description: "You are not authorized to create an admin account. Please contact the system administrator.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     const newUser: User = {
@@ -287,6 +320,7 @@ const Index = () => {
       signupForm={signupForm}
       setSignupForm={setSignupForm}
       handleSignup={handleSignup}
+      isAuthorizedAdmin={isAuthorizedAdmin}
     />;
   }
 
@@ -331,11 +365,12 @@ const Index = () => {
         signupForm={signupForm}
         setSignupForm={setSignupForm}
         handleSignup={handleSignup}
+        isAuthorizedAdmin={isAuthorizedAdmin}
       />;
   }
 };
 
-const LoginPage = ({ onLogin, loginForm, setLoginForm, isSignup, setIsSignup, signupForm, setSignupForm, handleSignup }: any) => {
+const LoginPage = ({ onLogin, loginForm, setLoginForm, isSignup, setIsSignup, signupForm, setSignupForm, handleSignup, isAuthorizedAdmin }: any) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -382,7 +417,7 @@ const LoginPage = ({ onLogin, loginForm, setLoginForm, isSignup, setIsSignup, si
                       onClick={() => onLogin('admin', 'admin')}
                       className="bg-red-600 hover:bg-red-700"
                     >
-                      Login as Admin
+                      Login as Admin (Authorized Only)
                     </Button>
                     <Button 
                       onClick={() => onLogin('buyer', 'priya_sharma')}
@@ -482,8 +517,16 @@ const LoginPage = ({ onLogin, loginForm, setLoginForm, isSignup, setIsSignup, si
                     <SelectContent>
                       <SelectItem value="buyer">Milk Buyer</SelectItem>
                       <SelectItem value="milkman">Milkman</SelectItem>
+                      <SelectItem value="admin" disabled={!isAuthorizedAdmin(signupForm.email, signupForm.username)}>
+                        Admin (Authorization Required)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  {signupForm.role === 'admin' && !isAuthorizedAdmin(signupForm.email, signupForm.username) && (
+                    <p className="text-sm text-red-600">
+                      Admin access requires authorization. Contact system administrator.
+                    </p>
+                  )}
                 </div>
 
                 <Button onClick={handleSignup} className="w-full">
