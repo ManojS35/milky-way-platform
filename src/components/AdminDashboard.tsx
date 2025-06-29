@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSign, Package } from 'lucide-react';
+import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSign, Package, Settings } from 'lucide-react';
 import DailyRecordCalendar from './DailyRecordCalendar';
 
 interface DailyRecord {
@@ -70,6 +70,16 @@ interface ProductSale {
   date: string;
 }
 
+interface AdminProfile {
+  name: string;
+  email: string;
+  phone: string;
+  dairyName: string;
+  accountNumber: string;
+  ifscCode: string;
+  address: string;
+}
+
 interface AdminDashboardProps {
   user: User;
   onLogout: () => void;
@@ -95,6 +105,8 @@ interface AdminDashboardProps {
   onPayMilkman: (milkmanId: number, amount: number) => void;
   onAddDailyRecord: (userId: number, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => void;
   onAddProduct: (name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => void;
+  onUpdateProduct: (id: number, name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => void;
+  onDeleteProduct: (id: number) => void;
   onSellProduct: (productId: number, buyerId: number, buyerName: string, buyerRole: 'buyer' | 'milkman', quantity: number) => void;
 }
 
@@ -115,6 +127,8 @@ const AdminDashboard = ({
   onPayMilkman,
   onAddDailyRecord,
   onAddProduct,
+  onUpdateProduct,
+  onDeleteProduct,
   onSellProduct
 }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -128,10 +142,20 @@ const AdminDashboard = ({
     price: 0,
     unit: ''
   });
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productSaleForm, setProductSaleForm] = useState({
     productId: 0,
     buyerId: 0,
     quantity: 0
+  });
+  const [adminProfile, setAdminProfile] = useState<AdminProfile>({
+    name: 'Dairy Owner',
+    email: user.email,
+    phone: '',
+    dairyName: 'DairyConnect Farm',
+    accountNumber: '',
+    ifscCode: '',
+    address: ''
   });
 
   const todayRecords = dailyRecords.filter(r => r.date === new Date().toISOString().split('T')[0]);
@@ -163,6 +187,13 @@ const AdminDashboard = ({
     }
   };
 
+  const handleUpdateProduct = () => {
+    if (editingProduct && editingProduct.name && editingProduct.price > 0 && editingProduct.unit) {
+      onUpdateProduct(editingProduct.id, editingProduct.name, editingProduct.category, editingProduct.price, editingProduct.unit);
+      setEditingProduct(null);
+    }
+  };
+
   const handleSellProduct = () => {
     if (productSaleForm.productId && productSaleForm.buyerId && productSaleForm.quantity > 0) {
       const buyer = users.find(u => u.id === productSaleForm.buyerId);
@@ -178,6 +209,9 @@ const AdminDashboard = ({
       }
     }
   };
+
+  // Only show positive dues for milkmen payments
+  const milkmenWithPositiveDues = milkmen.filter(m => (m.totalDue || 0) > 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -229,10 +263,14 @@ const AdminDashboard = ({
             </TabsTrigger>
             <TabsTrigger value="rates">Rate Management</TabsTrigger>
             <TabsTrigger value="payments">
-              Payments <Badge className="ml-2">₹{totalPendingPayments}</Badge>
+              Payments {milkmenWithPositiveDues.length > 0 && <Badge className="ml-2">₹{totalPendingPayments}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="profile">
+              <Settings className="w-4 h-4 mr-2" />
+              Profile
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
@@ -350,15 +388,18 @@ const AdminDashboard = ({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Add New Product</CardTitle>
+                  <CardTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</CardTitle>
                   <CardDescription>Add cow feeds and dairy products to sell</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Product Name</Label>
                     <Input
-                      value={newProduct.name}
-                      onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                      value={editingProduct ? editingProduct.name : newProduct.name}
+                      onChange={(e) => editingProduct 
+                        ? setEditingProduct({...editingProduct, name: e.target.value})
+                        : setNewProduct({...newProduct, name: e.target.value})
+                      }
                       placeholder="e.g., Cow Feed Premium, Ghee, Curd"
                     />
                   </div>
@@ -366,8 +407,11 @@ const AdminDashboard = ({
                     <Label>Category</Label>
                     <select 
                       className="w-full px-3 py-2 border rounded-md"
-                      value={newProduct.category}
-                      onChange={(e) => setNewProduct({...newProduct, category: e.target.value as 'feed' | 'dairy_product'})}
+                      value={editingProduct ? editingProduct.category : newProduct.category}
+                      onChange={(e) => editingProduct
+                        ? setEditingProduct({...editingProduct, category: e.target.value as 'feed' | 'dairy_product'})
+                        : setNewProduct({...newProduct, category: e.target.value as 'feed' | 'dairy_product'})
+                      }
                     >
                       <option value="feed">Cow Feed</option>
                       <option value="dairy_product">Dairy Product</option>
@@ -378,23 +422,42 @@ const AdminDashboard = ({
                       <Label>Price</Label>
                       <Input
                         type="number"
-                        value={newProduct.price}
-                        onChange={(e) => setNewProduct({...newProduct, price: parseFloat(e.target.value) || 0})}
+                        value={editingProduct ? editingProduct.price : newProduct.price}
+                        onChange={(e) => editingProduct
+                          ? setEditingProduct({...editingProduct, price: parseFloat(e.target.value) || 0})
+                          : setNewProduct({...newProduct, price: parseFloat(e.target.value) || 0})
+                        }
                         placeholder="Price per unit"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Unit</Label>
                       <Input
-                        value={newProduct.unit}
-                        onChange={(e) => setNewProduct({...newProduct, unit: e.target.value})}
+                        value={editingProduct ? editingProduct.unit : newProduct.unit}
+                        onChange={(e) => editingProduct
+                          ? setEditingProduct({...editingProduct, unit: e.target.value})
+                          : setNewProduct({...newProduct, unit: e.target.value})
+                        }
                         placeholder="kg, liter, piece"
                       />
                     </div>
                   </div>
-                  <Button onClick={handleAddProduct} disabled={!newProduct.name || newProduct.price <= 0 || !newProduct.unit}>
-                    Add Product
-                  </Button>
+                  <div className="flex gap-2">
+                    {editingProduct ? (
+                      <>
+                        <Button onClick={handleUpdateProduct} disabled={!editingProduct.name || editingProduct.price <= 0 || !editingProduct.unit}>
+                          Update Product
+                        </Button>
+                        <Button variant="outline" onClick={() => setEditingProduct(null)}>
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <Button onClick={handleAddProduct} disabled={!newProduct.name || newProduct.price <= 0 || !newProduct.unit}>
+                        Add Product
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -467,7 +530,23 @@ const AdminDashboard = ({
                           {product.category === 'feed' ? 'Feed' : 'Dairy'}
                         </Badge>
                       </div>
-                      <p className="text-lg font-bold text-green-600">₹{product.price}/{product.unit}</p>
+                      <p className="text-lg font-bold text-green-600 mb-3">₹{product.price}/{product.unit}</p>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setEditingProduct(product)}
+                        >
+                          Edit
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="destructive"
+                          onClick={() => onDeleteProduct(product.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   {products.length === 0 && (
@@ -601,7 +680,7 @@ const AdminDashboard = ({
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {milkmen.filter(m => (m.totalDue || 0) > 0).map((milkman: Milkman) => (
+                  {milkmenWithPositiveDues.map((milkman: Milkman) => (
                     <div key={milkman.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-4">
                         <div>
@@ -635,7 +714,7 @@ const AdminDashboard = ({
                       </div>
                     </div>
                   ))}
-                  {milkmen.filter(m => (m.totalDue || 0) > 0).length === 0 && (
+                  {milkmenWithPositiveDues.length === 0 && (
                     <p className="text-gray-500 text-center py-8">No pending payments</p>
                   )}
                 </div>
@@ -712,6 +791,84 @@ const AdminDashboard = ({
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="profile" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Admin Profile</CardTitle>
+                <CardDescription>Manage your dairy information and payment details</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input
+                      value={adminProfile.name}
+                      onChange={(e) => setAdminProfile({...adminProfile, name: e.target.value})}
+                      placeholder="Your full name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      value={adminProfile.email}
+                      onChange={(e) => setAdminProfile({...adminProfile, email: e.target.value})}
+                      placeholder="Your email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input
+                      value={adminProfile.phone}
+                      onChange={(e) => setAdminProfile({...adminProfile, phone: e.target.value})}
+                      placeholder="Your phone number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Dairy Name</Label>
+                    <Input
+                      value={adminProfile.dairyName}
+                      onChange={(e) => setAdminProfile({...adminProfile, dairyName: e.target.value})}
+                      placeholder="Name of your dairy"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Bank Account Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Account Number</Label>
+                      <Input
+                        value={adminProfile.accountNumber}
+                        onChange={(e) => setAdminProfile({...adminProfile, accountNumber: e.target.value})}
+                        placeholder="Bank account number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>IFSC Code</Label>
+                      <Input
+                        value={adminProfile.ifscCode}
+                        onChange={(e) => setAdminProfile({...adminProfile, ifscCode: e.target.value})}
+                        placeholder="IFSC code"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Address</Label>
+                  <Input
+                    value={adminProfile.address}
+                    onChange={(e) => setAdminProfile({...adminProfile, address: e.target.value})}
+                    placeholder="Dairy address"
+                  />
+                </div>
+
+                <Button>Update Profile</Button>
               </CardContent>
             </Card>
           </TabsContent>

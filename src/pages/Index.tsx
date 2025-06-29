@@ -178,6 +178,18 @@ const Index = () => {
 
   const [nextPaymentId, setNextPaymentId] = useState(1);
 
+  const [milkmanPayments, setMilkmanPayments] = useState<Array<{
+    id: number;
+    milkmanId: number;
+    milkmanName: string;
+    amount: number;
+    paymentMethod: string;
+    transactionId: string;
+    date: string;
+  }>>([]);
+
+  const [nextMilkmanPaymentId, setNextMilkmanPaymentId] = useState(1);
+
   const isAuthorizedAdmin = (email: string, username: string) => {
     return email.toLowerCase() === ADMIN_EMAIL.toLowerCase() || username.toLowerCase() === 'admin';
   };
@@ -535,6 +547,54 @@ const Index = () => {
     });
   };
 
+  const handleMilkmanPayment = (milkmanId: number, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => {
+    const newPayment = {
+      id: nextMilkmanPaymentId,
+      milkmanId,
+      milkmanName,
+      amount,
+      paymentMethod,
+      transactionId,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setMilkmanPayments([...milkmanPayments, newPayment]);
+    setNextMilkmanPaymentId(nextMilkmanPaymentId + 1);
+
+    // Update milkman's due amount
+    setMilkmen(milkmen.map(m => 
+      m.id === milkmanId 
+        ? { ...m, totalDue: (m.totalDue || 0) + Math.abs(amount) }
+        : m
+    ));
+
+    toast({
+      title: "Payment Processed",
+      description: `₹${amount} payment made by ${milkmanName}`,
+    });
+  };
+
+  const updateProduct = (id: number, name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => {
+    setProducts(products.map(p => 
+      p.id === id 
+        ? { ...p, name, category, price, unit }
+        : p
+    ));
+    toast({
+      title: "Product Updated",
+      description: `${name} has been updated successfully`,
+    });
+  };
+
+  const deleteProduct = (id: number) => {
+    const product = products.find(p => p.id === id);
+    setProducts(products.filter(p => p.id !== id));
+    toast({
+      title: "Product Deleted",
+      description: `${product?.name} has been deleted from inventory`,
+    });
+  };
+
   if (!currentUser) {
     return <LoginPage 
       onLogin={handleLogin} 
@@ -568,6 +628,8 @@ const Index = () => {
         onPayMilkman={payMilkman}
         onAddDailyRecord={addDailyRecord}
         onAddProduct={addProduct}
+        onUpdateProduct={updateProduct}
+        onDeleteProduct={deleteProduct}
         onSellProduct={sellProduct}
       />;
     case 'buyer':
@@ -586,6 +648,7 @@ const Index = () => {
         dailyRecords={dailyRecords.filter(r => r.userId === currentUser.id)}
         milkmanData={milkmen.find(m => m.id === currentUser.id)}
         onUpdateAccountDetails={(accountNumber, ifscCode) => updateMilkmanAccountDetails(currentUser.id, accountNumber, ifscCode)}
+        onMilkmanPayment={handleMilkmanPayment}
       />;
     default:
       return <LoginPage 

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import PaymentOptions from './PaymentOptions';
 
 interface DailyRecord {
   id: number;
@@ -48,9 +49,10 @@ interface MilkmanDashboardProps {
   dailyRecords: DailyRecord[];
   milkmanData?: Milkman;
   onUpdateAccountDetails: (accountNumber: string, ifscCode: string) => void;
+  onMilkmanPayment?: (milkmanId: number, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
 }
 
-const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateAccountDetails }: MilkmanDashboardProps) => {
+const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateAccountDetails, onMilkmanPayment }: MilkmanDashboardProps) => {
   const [activeTab, setActiveTab] = useState('records');
   const [accountDetails, setAccountDetails] = useState({
     accountNumber: milkmanData?.accountNumber || '',
@@ -60,6 +62,7 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
     phone: user.phone || '',
     location: user.location || ''
   });
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
 
   const totalEarned = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
   const thisMonthRecords = dailyRecords.filter(record => {
@@ -74,6 +77,15 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
       onUpdateAccountDetails(accountDetails.accountNumber, accountDetails.ifscCode);
     }
   };
+
+  const handlePayment = (amount: number, method: string, transactionId: string) => {
+    if (onMilkmanPayment && milkmanData) {
+      onMilkmanPayment(milkmanData.id, user.username, amount, method, transactionId);
+      setShowPaymentOptions(false);
+    }
+  };
+
+  const milkmanDue = (milkmanData?.totalDue || 0) < 0 ? Math.abs(milkmanData?.totalDue || 0) : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,9 +110,15 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Due</p>
-                  <p className="text-2xl font-bold text-green-600">₹{milkmanData?.totalDue || 0}</p>
-                  <p className="text-sm text-gray-500">From dairy</p>
+                  <p className="text-sm font-medium text-gray-600">
+                    {milkmanDue > 0 ? 'Amount Due' : 'Total Due'}
+                  </p>
+                  <p className={`text-2xl font-bold ${milkmanDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    ₹{milkmanDue > 0 ? milkmanDue : (milkmanData?.totalDue || 0)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {milkmanDue > 0 ? 'You need to pay' : 'From dairy'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -140,6 +158,30 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
                   <h3 className="font-medium text-yellow-800">Application Under Review</h3>
                   <p className="text-sm text-yellow-700">Your application is being reviewed by the dairy admin. You'll be notified once approved.</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {milkmanDue > 0 && (
+          <Card className="mb-6 bg-red-50 border-red-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                    💳
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-red-800">Payment Required</h3>
+                    <p className="text-sm text-red-700">You have an outstanding due of ₹{milkmanDue}. Please make a payment.</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => setShowPaymentOptions(true)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Pay Now
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -282,6 +324,16 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
           </TabsContent>
         </Tabs>
       </div>
+
+      {showPaymentOptions && (
+        <PaymentOptions
+          isOpen={showPaymentOptions}
+          onClose={() => setShowPaymentOptions(false)}
+          dueAmount={milkmanDue}
+          customerName={user.username}
+          onPayment={handlePayment}
+        />
+      )}
     </div>
   );
 };
