@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +33,9 @@ interface Milkman {
   rating: number;
   distance?: string;
   available: boolean;
+  accountNumber?: string;
+  ifscCode?: string;
+  pendingPayment?: number;
 }
 
 interface User {
@@ -53,6 +55,7 @@ interface MilkmanDashboardProps {
   onRejectOrder: (orderId: number) => void;
   onMarkDelivered: (orderId: number) => void;
   milkmanData?: Milkman;
+  onUpdateAccountDetails?: (accountNumber: string, ifscCode: string) => void;
 }
 
 const MilkmanDashboard = ({ 
@@ -62,11 +65,13 @@ const MilkmanDashboard = ({
   onAcceptOrder, 
   onRejectOrder, 
   onMarkDelivered, 
-  milkmanData 
+  milkmanData,
+  onUpdateAccountDetails
 }: MilkmanDashboardProps) => {
   const [activeTab, setActiveTab] = useState('orders');
-  const [milkRate, setMilkRate] = useState(milkmanData?.rate || 65);
   const [availableQuantity, setAvailableQuantity] = useState(milkmanData?.availableQuantity || 50);
+  const [accountNumber, setAccountNumber] = useState(milkmanData?.accountNumber || '');
+  const [ifscCode, setIfscCode] = useState(milkmanData?.ifscCode || '');
 
   const pendingOrders = orders.filter((o: Order) => o.status === 'admin_approved');
   const acceptedOrders = orders.filter((o: Order) => o.status === 'milkman_accepted');
@@ -75,6 +80,14 @@ const MilkmanDashboard = ({
   const todaysEarnings = completedOrders
     .filter((o: Order) => o.date === new Date().toISOString().split('T')[0])
     .reduce((sum: number, o: Order) => sum + o.amount, 0);
+
+  const totalEarnings = completedOrders.reduce((sum: number, o: Order) => sum + o.amount, 0);
+
+  const handleUpdateAccountDetails = () => {
+    if (onUpdateAccountDetails && accountNumber && ifscCode) {
+      onUpdateAccountDetails(accountNumber, ifscCode);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -92,7 +105,7 @@ const MilkmanDashboard = ({
       </header>
 
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
@@ -104,16 +117,25 @@ const MilkmanDashboard = ({
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Orders Delivered</p>
-                <p className="text-2xl font-bold text-blue-600">{completedOrders.length}</p>
+                <p className="text-sm font-medium text-gray-600">Total Earnings</p>
+                <p className="text-2xl font-bold text-blue-600">₹{totalEarnings}</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Pending Orders</p>
-                <p className="text-2xl font-bold text-orange-600">{pendingOrders.length}</p>
+                <p className="text-sm font-medium text-gray-600">Pending Payment</p>
+                <p className="text-2xl font-bold text-orange-600">₹{milkmanData?.pendingPayment || totalEarnings}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600">Current Rate</p>
+                <p className="text-2xl font-bold text-purple-600">₹{milkmanData?.rate || 0}/L</p>
+                <p className="text-xs text-gray-500">Set by Admin</p>
               </div>
             </CardContent>
           </Card>
@@ -126,7 +148,7 @@ const MilkmanDashboard = ({
             </TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
             <TabsTrigger value="earnings">Earnings</TabsTrigger>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="account">Account Details</TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders" className="mt-6">
@@ -149,7 +171,7 @@ const MilkmanDashboard = ({
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-green-600">₹{order.amount}</p>
-                              <p className="text-sm text-gray-600">{order.quantity} liters</p>
+                              <p className="text-sm text-gray-600">{order.quantity} liters @ ₹{order.rate}/L</p>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -240,24 +262,12 @@ const MilkmanDashboard = ({
           <TabsContent value="inventory" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Milk Inventory & Pricing</CardTitle>
-                <CardDescription>Manage your milk availability and rates</CardDescription>
+                <CardTitle>Milk Inventory</CardTitle>
+                <CardDescription>Manage your milk availability</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Milk Rate (per liter)</Label>
-                      <div className="flex items-center gap-2">
-                        <span>₹</span>
-                        <Input
-                          type="number"
-                          value={milkRate}
-                          onChange={(e) => setMilkRate(parseInt(e.target.value) || 0)}
-                        />
-                      </div>
-                    </div>
-                    
                     <div className="space-y-2">
                       <Label>Available Quantity (liters)</Label>
                       <Input
@@ -276,20 +286,11 @@ const MilkmanDashboard = ({
                     <div className="p-4 bg-blue-50 rounded-lg">
                       <h3 className="font-medium mb-2">Current Status</h3>
                       <div className="space-y-1 text-sm">
-                        <p>Rate: ₹{milkmanData?.rate || milkRate}/liter</p>
+                        <p>Rate: ₹{milkmanData?.rate || 0}/liter (Set by Admin)</p>
                         <p>Available: {milkmanData?.availableQuantity || availableQuantity} liters</p>
                         <p>Status: <Badge variant={milkmanData?.status === 'approved' ? 'default' : 'secondary'}>
                           {milkmanData?.status || 'pending'}
                         </Badge></p>
-                      </div>
-                    </div>
-                    
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h3 className="font-medium mb-2">Today's Summary</h3>
-                      <div className="space-y-1 text-sm">
-                        <p>Orders: {orders.filter((o: Order) => o.date === new Date().toISOString().split('T')[0]).length}</p>
-                        <p>Delivered: {completedOrders.filter((o: Order) => o.date === new Date().toISOString().split('T')[0]).length}</p>
-                        <p>Revenue: ₹{todaysEarnings}</p>
                       </div>
                     </div>
                   </div>
@@ -338,57 +339,62 @@ const MilkmanDashboard = ({
             </Card>
           </TabsContent>
 
-          <TabsContent value="profile" className="mt-6">
+          <TabsContent value="account" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
+                <CardTitle>Account Details</CardTitle>
+                <CardDescription>Update your bank account details for payments</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Username</Label>
-                    <Input value={user.username} readOnly />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={user.email} readOnly />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input value={user.phone || milkmanData?.phone || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Location</Label>
-                    <Input value={user.location || milkmanData?.location || ''} />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Business Hours</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-sm">Start Time</Label>
-                      <Input type="time" value="06:00" />
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Account Number *</Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter your account number"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                      />
                     </div>
-                    <div>
-                      <Label className="text-sm">End Time</Label>
-                      <Input type="time" value="10:00" />
+                    
+                    <div className="space-y-2">
+                      <Label>IFSC Code *</Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter your IFSC code"
+                        value={ifscCode}
+                        onChange={(e) => setIfscCode(e.target.value)}
+                      />
                     </div>
+                    
+                    <Button 
+                      onClick={handleUpdateAccountDetails}
+                      disabled={!accountNumber || !ifscCode || milkmanData?.status !== 'approved'}
+                    >
+                      Update Account Details
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <h3 className="font-medium mb-2">Payment Status</h3>
+                      <div className="space-y-1 text-sm">
+                        <p>Pending Payment: ₹{milkmanData?.pendingPayment || totalEarnings}</p>
+                        <p>Account: {milkmanData?.accountNumber ? `****${milkmanData.accountNumber.slice(-4)}` : 'Not Added'}</p>
+                        <p>IFSC: {milkmanData?.ifscCode || 'Not Added'}</p>
+                      </div>
+                    </div>
+                    
+                    {(!milkmanData?.accountNumber || !milkmanData?.ifscCode) && (
+                      <div className="p-4 bg-orange-50 rounded-lg">
+                        <p className="text-sm font-medium text-orange-800">
+                          ⚠️ Please add your bank account details to receive payments from admin.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-                
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium mb-2">Account Status</p>
-                  <Badge variant={milkmanData?.status === 'approved' ? 'default' : 'secondary'}>
-                    {milkmanData?.status === 'approved' ? 'Approved - Active' : 
-                     milkmanData?.status === 'pending' ? 'Pending Admin Approval' : 
-                     'Status Unknown'}
-                  </Badge>
-                </div>
-                
-                <Button disabled={milkmanData?.status !== 'approved'}>
-                  Update Profile
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>

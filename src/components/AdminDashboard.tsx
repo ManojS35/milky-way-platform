@@ -1,10 +1,11 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Users, TrendingUp, ShoppingCart, Truck } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Users, TrendingUp, ShoppingCart, Truck, CreditCard } from 'lucide-react';
 
 interface Order {
   id: number;
@@ -33,6 +34,9 @@ interface Milkman {
   rating: number;
   distance?: string;
   available: boolean;
+  accountNumber?: string;
+  ifscCode?: string;
+  pendingPayment?: number;
 }
 
 interface User {
@@ -54,6 +58,8 @@ interface AdminDashboardProps {
   onRejectOrder: (orderId: number) => void;
   onApproveMilkman: (milkmanId: number) => void;
   onRejectMilkman: (milkmanId: number) => void;
+  onUpdateMilkmanRate?: (milkmanId: number, rate: number) => void;
+  onPayMilkman?: (milkmanId: number, amount: number) => void;
 }
 
 const AdminDashboard = ({ 
@@ -65,9 +71,12 @@ const AdminDashboard = ({
   onApproveOrder, 
   onRejectOrder, 
   onApproveMilkman, 
-  onRejectMilkman 
+  onRejectMilkman,
+  onUpdateMilkmanRate,
+  onPayMilkman
 }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedMilkmanRate, setSelectedMilkmanRate] = useState<{[key: number]: number}>({});
 
   const stats = [
     { title: 'Total Users', value: users.length.toString(), icon: Users, change: '+12%' },
@@ -78,6 +87,20 @@ const AdminDashboard = ({
 
   const pendingOrders = orders.filter((o: Order) => o.status === 'pending');
   const pendingMilkmen = milkmen.filter((m: Milkman) => m.status === 'pending');
+  const totalPendingPayments = milkmen.reduce((sum, m) => sum + (m.pendingPayment || 0), 0);
+
+  const handleUpdateMilkmanRate = (milkmanId: number) => {
+    const rate = selectedMilkmanRate[milkmanId];
+    if (rate && onUpdateMilkmanRate) {
+      onUpdateMilkmanRate(milkmanId, rate);
+    }
+  };
+
+  const handlePayMilkman = (milkmanId: number, amount: number) => {
+    if (onPayMilkman) {
+      onPayMilkman(milkmanId, amount);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -118,8 +141,11 @@ const AdminDashboard = ({
             <TabsTrigger value="milkmen">
               Milkmen {pendingMilkmen.length > 0 && <Badge className="ml-2">{pendingMilkmen.length}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="rates">Rate Management</TabsTrigger>
+            <TabsTrigger value="payments">
+              Payments <Badge className="ml-2">₹{totalPendingPayments}</Badge>
+            </TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
@@ -149,21 +175,23 @@ const AdminDashboard = ({
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Pending Milkmen ({pendingMilkmen.length})</CardTitle>
+                  <CardTitle>Pending Payments</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {pendingMilkmen.slice(0, 3).map((milkman: Milkman) => (
-                      <div key={milkman.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    {milkmen.filter(m => (m.pendingPayment || 0) > 0).slice(0, 3).map((milkman: Milkman) => (
+                      <div key={milkman.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
                         <div>
                           <p className="font-medium">{milkman.name}</p>
                           <p className="text-sm text-gray-600">{milkman.location}</p>
                         </div>
-                        <Badge variant="outline">Pending Approval</Badge>
+                        <div className="text-right">
+                          <p className="font-bold text-green-600">₹{milkman.pendingPayment || 0}</p>
+                        </div>
                       </div>
                     ))}
-                    {pendingMilkmen.length === 0 && (
-                      <p className="text-gray-500 text-center py-4">No pending applications</p>
+                    {totalPendingPayments === 0 && (
+                      <p className="text-gray-500 text-center py-4">No pending payments</p>
                     )}
                   </div>
                 </CardContent>
@@ -270,6 +298,101 @@ const AdminDashboard = ({
             </Card>
           </TabsContent>
 
+          <TabsContent value="rates" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Rate Management</CardTitle>
+                <CardDescription>Set milk rates for each milkman</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {milkmen.filter(m => m.status === 'approved').map((milkman: Milkman) => (
+                    <div key={milkman.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex-1">
+                        <h3 className="font-medium">{milkman.name}</h3>
+                        <p className="text-sm text-gray-600">{milkman.location}</p>
+                        <p className="text-sm">Current Rate: ₹{milkman.rate}/liter</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm">New Rate:</Label>
+                        <Input
+                          type="number"
+                          placeholder="Rate"
+                          className="w-24"
+                          value={selectedMilkmanRate[milkman.id] || ''}
+                          onChange={(e) => setSelectedMilkmanRate({
+                            ...selectedMilkmanRate,
+                            [milkman.id]: parseInt(e.target.value) || 0
+                          })}
+                        />
+                        <Button 
+                          size="sm"
+                          onClick={() => handleUpdateMilkmanRate(milkman.id)}
+                          disabled={!selectedMilkmanRate[milkman.id]}
+                        >
+                          Update
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {milkmen.filter(m => m.status === 'approved').length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No approved milkmen</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="payments" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Management</CardTitle>
+                <CardDescription>Pay milkmen for delivered orders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {milkmen.filter(m => (m.pendingPayment || 0) > 0).map((milkman: Milkman) => (
+                    <div key={milkman.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-medium">{milkman.name}</h3>
+                          <p className="text-sm text-gray-600">{milkman.location} • {milkman.phone}</p>
+                          <p className="text-sm">
+                            Account: {milkman.accountNumber ? `****${milkman.accountNumber.slice(-4)}` : 'Not Provided'}
+                            {milkman.ifscCode && ` • IFSC: ${milkman.ifscCode}`}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">₹{milkman.pendingPayment}</p>
+                          <p className="text-sm text-gray-600">Pending Payment</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm"
+                          onClick={() => handlePayMilkman(milkman.id, milkman.pendingPayment || 0)}
+                          disabled={!milkman.accountNumber || !milkman.ifscCode}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Pay Now
+                        </Button>
+                        {(!milkman.accountNumber || !milkman.ifscCode) && (
+                          <p className="text-sm text-orange-600 flex items-center">
+                            ⚠️ Bank details missing
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {milkmen.filter(m => (m.pendingPayment || 0) > 0).length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No pending payments</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="users" className="mt-6">
             <Card>
               <CardHeader>
@@ -294,34 +417,6 @@ const AdminDashboard = ({
                       </div>
                     </div>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="transactions" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Transaction History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {orders.filter((o: Order) => o.status === 'delivered').map((order: Order) => (
-                    <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium">Order #{order.id}</p>
-                        <p className="text-sm text-gray-600">{order.buyerName} → {order.milkmanName}</p>
-                        <p className="text-sm text-gray-500">{order.date}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">₹{order.amount}</p>
-                        <p className="text-sm text-gray-600">{order.quantity} liters @ ₹{order.rate}/L</p>
-                      </div>
-                    </div>
-                  ))}
-                  {orders.filter((o: Order) => o.status === 'delivered').length === 0 && (
-                    <p className="text-gray-500 text-center py-8">No completed transactions</p>
-                  )}
                 </div>
               </CardContent>
             </Card>

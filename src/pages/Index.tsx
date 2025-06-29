@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import LoginPage from '@/components/LoginPage';
@@ -44,6 +43,9 @@ interface Milkman {
   rating: number;
   distance?: string;
   available: boolean;
+  accountNumber?: string;
+  ifscCode?: string;
+  pendingPayment?: number;
 }
 
 const Index = () => {
@@ -61,9 +63,48 @@ const Index = () => {
   ]);
 
   const [milkmen, setMilkmen] = useState<Milkman[]>([
-    { id: 3, name: 'Ramesh Kumar', username: 'ramesh_kumar', location: 'Sector 21', rate: 65, status: 'approved', phone: '+91-9876543211', availableQuantity: 50, rating: 4.8, distance: '0.5 km', available: true },
-    { id: 4, name: 'Suresh Yadav', username: 'suresh_yadav', location: 'Sector 15', rate: 70, status: 'pending', phone: '+91-9876543212', availableQuantity: 30, rating: 4.6, distance: '1.2 km', available: true },
-    { id: 5, name: 'Mahesh Singh', username: 'mahesh_singh', location: 'Sector 8', rate: 60, status: 'approved', phone: '+91-9876543213', availableQuantity: 25, rating: 4.9, distance: '2.1 km', available: false }
+    { 
+      id: 3, 
+      name: 'Ramesh Kumar', 
+      username: 'ramesh_kumar', 
+      location: 'Sector 21', 
+      rate: 65, 
+      status: 'approved', 
+      phone: '+91-9876543211', 
+      availableQuantity: 50, 
+      rating: 4.8, 
+      distance: '0.5 km', 
+      available: true,
+      pendingPayment: 130
+    },
+    { 
+      id: 4, 
+      name: 'Suresh Yadav', 
+      username: 'suresh_yadav', 
+      location: 'Sector 15', 
+      rate: 70, 
+      status: 'pending', 
+      phone: '+91-9876543212', 
+      availableQuantity: 30, 
+      rating: 4.6, 
+      distance: '1.2 km', 
+      available: true,
+      pendingPayment: 0
+    },
+    { 
+      id: 5, 
+      name: 'Mahesh Singh', 
+      username: 'mahesh_singh', 
+      location: 'Sector 8', 
+      rate: 60, 
+      status: 'approved', 
+      phone: '+91-9876543213', 
+      availableQuantity: 25, 
+      rating: 4.9, 
+      distance: '2.1 km', 
+      available: false,
+      pendingPayment: 0
+    }
   ]);
 
   const [orders, setOrders] = useState<Order[]>([
@@ -187,7 +228,8 @@ const Index = () => {
         phone: signupForm.phone || '',
         availableQuantity: 0,
         rating: 0,
-        available: false
+        available: false,
+        pendingPayment: 0
       };
       setMilkmen([...milkmen, newMilkman]);
     }
@@ -296,6 +338,17 @@ const Index = () => {
         ? { ...order, status: 'delivered' as const }
         : order
     ));
+    
+    // Update milkman's pending payment
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      setMilkmen(milkmen.map(m => 
+        m.id === order.milkmanId 
+          ? { ...m, pendingPayment: (m.pendingPayment || 0) + order.amount }
+          : m
+      ));
+    }
+
     toast({
       title: "Order Delivered",
       description: "Order has been marked as delivered.",
@@ -327,6 +380,42 @@ const Index = () => {
     });
   };
 
+  const updateMilkmanRate = (milkmanId: number, rate: number) => {
+    setMilkmen(milkmen.map(m => 
+      m.id === milkmanId 
+        ? { ...m, rate }
+        : m
+    ));
+    toast({
+      title: "Rate Updated",
+      description: `Milk rate updated to ₹${rate}/liter`,
+    });
+  };
+
+  const payMilkman = (milkmanId: number, amount: number) => {
+    setMilkmen(milkmen.map(m => 
+      m.id === milkmanId 
+        ? { ...m, pendingPayment: 0 }
+        : m
+    ));
+    toast({
+      title: "Payment Processed",
+      description: `₹${amount} has been paid to milkman`,
+    });
+  };
+
+  const updateMilkmanAccountDetails = (milkmanId: number, accountNumber: string, ifscCode: string) => {
+    setMilkmen(milkmen.map(m => 
+      m.id === milkmanId 
+        ? { ...m, accountNumber, ifscCode }
+        : m
+    ));
+    toast({
+      title: "Account Details Updated",
+      description: "Bank account details have been updated successfully",
+    });
+  };
+
   if (!currentUser) {
     return <LoginPage 
       onLogin={handleLogin} 
@@ -353,6 +442,8 @@ const Index = () => {
         onRejectOrder={rejectOrderByAdmin}
         onApproveMilkman={approveMilkman}
         onRejectMilkman={rejectMilkman}
+        onUpdateMilkmanRate={updateMilkmanRate}
+        onPayMilkman={payMilkman}
       />;
     case 'buyer':
       return <BuyerDashboard 
@@ -371,6 +462,7 @@ const Index = () => {
         onRejectOrder={rejectOrderByMilkman}
         onMarkDelivered={markOrderDelivered}
         milkmanData={milkmen.find(m => m.id === currentUser.id)}
+        onUpdateAccountDetails={(accountNumber, ifscCode) => updateMilkmanAccountDetails(currentUser.id, accountNumber, ifscCode)}
       />;
     default:
       return <LoginPage 
