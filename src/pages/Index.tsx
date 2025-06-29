@@ -16,19 +16,16 @@ interface User {
   location?: string;
 }
 
-interface Order {
+interface DailyRecord {
   id: number;
-  buyerId: number;
-  buyerName: string;
-  milkmanId: number;
-  milkmanName: string;
+  userId: number;
+  userName: string;
+  userRole: 'buyer' | 'milkman';
+  date: string;
   quantity: number;
   rate: number;
   amount: number;
-  status: 'pending' | 'admin_approved' | 'milkman_accepted' | 'delivered' | 'rejected';
-  date: string;
-  location?: string;
-  deliveryTime?: string;
+  type: 'purchase' | 'supply';
 }
 
 interface Milkman {
@@ -36,16 +33,19 @@ interface Milkman {
   name: string;
   username: string;
   location: string;
-  rate: number;
   status: 'pending' | 'approved' | 'rejected';
   phone: string;
-  availableQuantity: number;
   rating: number;
   distance?: string;
   available: boolean;
   accountNumber?: string;
   ifscCode?: string;
-  pendingPayment?: number;
+  totalDue?: number;
+}
+
+interface DairyRates {
+  milkmanRate: number;  // Rate paid to milkmen per liter
+  buyerRate: number;    // Rate charged to buyers per liter
 }
 
 const Index = () => {
@@ -55,7 +55,7 @@ const Index = () => {
   const ADMIN_EMAIL = 'manojs030504@gmail.com';
   const ADMIN_PASSWORD = 'Manojs@04';
   
-  // Global state for users, orders, and milkmen
+  // Global state for users and daily records
   const [users, setUsers] = useState<User[]>([
     { id: 1, username: 'admin', email: ADMIN_EMAIL, role: 'admin' },
     { id: 2, username: 'priya_sharma', email: 'priya@example.com', role: 'buyer', phone: '+91-9876543210', location: 'Sector 18' },
@@ -68,51 +68,58 @@ const Index = () => {
       name: 'Ramesh Kumar', 
       username: 'ramesh_kumar', 
       location: 'Sector 21', 
-      rate: 65, 
       status: 'approved', 
       phone: '+91-9876543211', 
-      availableQuantity: 50, 
       rating: 4.8, 
       distance: '0.5 km', 
       available: true,
-      pendingPayment: 130
+      totalDue: 0
     },
     { 
       id: 4, 
       name: 'Suresh Yadav', 
       username: 'suresh_yadav', 
       location: 'Sector 15', 
-      rate: 70, 
       status: 'pending', 
       phone: '+91-9876543212', 
-      availableQuantity: 30, 
       rating: 4.6, 
       distance: '1.2 km', 
       available: true,
-      pendingPayment: 0
-    },
-    { 
-      id: 5, 
-      name: 'Mahesh Singh', 
-      username: 'mahesh_singh', 
-      location: 'Sector 8', 
-      rate: 60, 
-      status: 'approved', 
-      phone: '+91-9876543213', 
-      availableQuantity: 25, 
-      rating: 4.9, 
-      distance: '2.1 km', 
-      available: false,
-      pendingPayment: 0
+      totalDue: 0
     }
   ]);
 
-  const [orders, setOrders] = useState<Order[]>([
-    { id: 1, buyerId: 2, buyerName: 'priya_sharma', milkmanId: 3, milkmanName: 'ramesh_kumar', quantity: 2, rate: 65, amount: 130, status: 'delivered', date: '2024-01-15', location: 'Sector 18', deliveryTime: '7:00 AM' },
-    { id: 2, buyerId: 2, buyerName: 'priya_sharma', milkmanId: 4, milkmanName: 'suresh_yadav', quantity: 1, rate: 70, amount: 70, status: 'pending', date: '2024-01-16', location: 'Sector 18', deliveryTime: '7:30 AM' }
+  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([
+    {
+      id: 1,
+      userId: 2,
+      userName: 'priya_sharma',
+      userRole: 'buyer',
+      date: '2024-01-15',
+      quantity: 2,
+      rate: 70,
+      amount: 140,
+      type: 'purchase'
+    },
+    {
+      id: 2,
+      userId: 3,
+      userName: 'ramesh_kumar',
+      userRole: 'milkman',
+      date: '2024-01-15',
+      quantity: 50,
+      rate: 55,
+      amount: 2750,
+      type: 'supply'
+    }
   ]);
 
-  const [nextOrderId, setNextOrderId] = useState(3);
+  const [dairyRates, setDairyRates] = useState<DairyRates>({
+    milkmanRate: 55,  // Rate paid to milkmen
+    buyerRate: 70     // Rate charged to buyers
+  });
+
+  const [nextRecordId, setNextRecordId] = useState(3);
   const [nextUserId, setNextUserId] = useState(6);
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -223,13 +230,11 @@ const Index = () => {
         name: signupForm.username,
         username: signupForm.username,
         location: signupForm.location || 'Unknown',
-        rate: 65,
         status: 'pending',
         phone: signupForm.phone || '',
-        availableQuantity: 0,
         rating: 0,
         available: false,
-        pendingPayment: 0
+        totalDue: 0
       };
       setMilkmen([...milkmen, newMilkman]);
     }
@@ -255,115 +260,49 @@ const Index = () => {
     });
   };
 
-  const placeOrder = (milkman: Milkman, quantity: number, deliveryTime: string) => {
-    if (!currentUser) return;
+  const addDailyRecord = (userId: number, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => {
+    const rate = type === 'purchase' ? dairyRates.buyerRate : dairyRates.milkmanRate;
+    const amount = quantity * rate;
 
-    const newOrder: Order = {
-      id: nextOrderId,
-      buyerId: currentUser.id,
-      buyerName: currentUser.username,
-      milkmanId: milkman.id,
-      milkmanName: milkman.username,
+    const newRecord: DailyRecord = {
+      id: nextRecordId,
+      userId,
+      userName,
+      userRole,
+      date,
       quantity,
-      rate: milkman.rate,
-      amount: quantity * milkman.rate,
-      status: 'pending',
-      date: new Date().toISOString().split('T')[0],
-      location: currentUser.location,
-      deliveryTime
+      rate,
+      amount,
+      type
     };
 
-    setOrders([...orders, newOrder]);
-    setNextOrderId(nextOrderId + 1);
-    
-    toast({
-      title: "Order Placed",
-      description: `Order for ${quantity} liters placed with ${milkman.name}. Waiting for admin approval.`,
-    });
-  };
+    setDailyRecords([...dailyRecords, newRecord]);
+    setNextRecordId(nextRecordId + 1);
 
-  const approveOrderByAdmin = (orderId: number) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: 'admin_approved' as const }
-        : order
-    ));
-    toast({
-      title: "Order Approved",
-      description: "Order has been approved and sent to milkman.",
-    });
-  };
-
-  const rejectOrderByAdmin = (orderId: number) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: 'rejected' as const }
-        : order
-    ));
-    toast({
-      title: "Order Rejected",
-      description: "Order has been rejected.",
-      variant: "destructive"
-    });
-  };
-
-  const acceptOrderByMilkman = (orderId: number) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: 'milkman_accepted' as const }
-        : order
-    ));
-    toast({
-      title: "Order Accepted",
-      description: "Order has been accepted. Ready for delivery.",
-    });
-  };
-
-  const rejectOrderByMilkman = (orderId: number) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: 'rejected' as const }
-        : order
-    ));
-    toast({
-      title: "Order Rejected",
-      description: "Order has been rejected by milkman.",
-      variant: "destructive"
-    });
-  };
-
-  const markOrderDelivered = (orderId: number) => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: 'delivered' as const }
-        : order
-    ));
-    
-    // Update milkman's pending payment
-    const order = orders.find(o => o.id === orderId);
-    if (order) {
+    // Update milkman's total due if it's a supply record
+    if (type === 'supply') {
       setMilkmen(milkmen.map(m => 
-        m.id === order.milkmanId 
-          ? { ...m, pendingPayment: (m.pendingPayment || 0) + order.amount }
+        m.id === userId 
+          ? { ...m, totalDue: (m.totalDue || 0) + amount }
           : m
       ));
     }
 
     toast({
-      title: "Order Delivered",
-      description: "Order has been marked as delivered.",
+      title: "Record Added",
+      description: `${type === 'purchase' ? 'Purchase' : 'Supply'} record added for ${quantity} liters`,
     });
   };
 
   const approveMilkman = (milkmanId: number) => {
     setMilkmen(milkmen.map(m => 
       m.id === milkmanId 
-        ? { ...m, status: 'approved' as const, available: true, availableQuantity: 50 }
+        ? { ...m, status: 'approved' as const, available: true }
         : m
     ));
     toast({
       title: "Milkman Approved",
-      description: "Milkman has been approved and can now accept orders.",
+      description: "Milkman has been approved and can now supply milk.",
     });
   };
 
@@ -380,22 +319,18 @@ const Index = () => {
     });
   };
 
-  const updateMilkmanRate = (milkmanId: number, rate: number) => {
-    setMilkmen(milkmen.map(m => 
-      m.id === milkmanId 
-        ? { ...m, rate }
-        : m
-    ));
+  const updateDairyRates = (milkmanRate: number, buyerRate: number) => {
+    setDairyRates({ milkmanRate, buyerRate });
     toast({
-      title: "Rate Updated",
-      description: `Milk rate updated to ₹${rate}/liter`,
+      title: "Rates Updated",
+      description: `Milkman rate: ₹${milkmanRate}/L, Buyer rate: ₹${buyerRate}/L`,
     });
   };
 
   const payMilkman = (milkmanId: number, amount: number) => {
     setMilkmen(milkmen.map(m => 
       m.id === milkmanId 
-        ? { ...m, pendingPayment: 0 }
+        ? { ...m, totalDue: 0 }
         : m
     ));
     toast({
@@ -435,32 +370,28 @@ const Index = () => {
       return <AdminDashboard 
         user={currentUser} 
         onLogout={handleLogout} 
-        orders={orders}
         milkmen={milkmen}
         users={users.filter(u => u.role !== 'admin')}
-        onApproveOrder={approveOrderByAdmin}
-        onRejectOrder={rejectOrderByAdmin}
+        dailyRecords={dailyRecords}
+        dairyRates={dairyRates}
         onApproveMilkman={approveMilkman}
         onRejectMilkman={rejectMilkman}
-        onUpdateMilkmanRate={updateMilkmanRate}
+        onUpdateDairyRates={updateDairyRates}
         onPayMilkman={payMilkman}
+        onAddDailyRecord={addDailyRecord}
       />;
     case 'buyer':
       return <BuyerDashboard 
         user={currentUser} 
         onLogout={handleLogout} 
-        milkmen={milkmen.filter(m => m.status === 'approved')}
-        orders={orders.filter(o => o.buyerId === currentUser.id)}
-        onPlaceOrder={placeOrder}
+        dailyRecords={dailyRecords.filter(r => r.userId === currentUser.id)}
+        dairyRates={dairyRates}
       />;
     case 'milkman':
       return <MilkmanDashboard 
         user={currentUser} 
         onLogout={handleLogout} 
-        orders={orders.filter(o => o.milkmanId === currentUser.id)}
-        onAcceptOrder={acceptOrderByMilkman}
-        onRejectOrder={rejectOrderByMilkman}
-        onMarkDelivered={markOrderDelivered}
+        dailyRecords={dailyRecords.filter(r => r.userId === currentUser.id)}
         milkmanData={milkmen.find(m => m.id === currentUser.id)}
         onUpdateAccountDetails={(accountNumber, ifscCode) => updateMilkmanAccountDetails(currentUser.id, accountNumber, ifscCode)}
       />;

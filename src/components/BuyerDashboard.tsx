@@ -2,39 +2,20 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import PaymentOptions from './PaymentOptions';
 
-interface Order {
+interface DailyRecord {
   id: number;
-  buyerId: number;
-  buyerName: string;
-  milkmanId: number;
-  milkmanName: string;
+  userId: number;
+  userName: string;
+  userRole: 'buyer' | 'milkman';
+  date: string;
   quantity: number;
   rate: number;
   amount: number;
-  status: 'pending' | 'admin_approved' | 'milkman_accepted' | 'delivered' | 'rejected';
-  date: string;
-  location?: string;
-  deliveryTime?: string;
-}
-
-interface Milkman {
-  id: number;
-  name: string;
-  username: string;
-  location: string;
-  rate: number;
-  status: 'pending' | 'approved' | 'rejected';
-  phone: string;
-  availableQuantity: number;
-  rating: number;
-  distance?: string;
-  available: boolean;
+  type: 'purchase' | 'supply';
 }
 
 interface User {
@@ -46,35 +27,55 @@ interface User {
   location?: string;
 }
 
+interface DairyRates {
+  milkmanRate: number;
+  buyerRate: number;
+}
+
 interface BuyerDashboardProps {
   user: User;
   onLogout: () => void;
-  milkmen: Milkman[];
-  orders: Order[];
-  onPlaceOrder: (milkman: Milkman, quantity: number, deliveryTime: string) => void;
+  dailyRecords: DailyRecord[];
+  dairyRates: DairyRates;
 }
 
-const BuyerDashboard = ({ user, onLogout, milkmen, orders, onPlaceOrder }: BuyerDashboardProps) => {
-  const [activeTab, setActiveTab] = useState('browse');
-  const [selectedMilkman, setSelectedMilkman] = useState<Milkman | null>(null);
-  const [orderQuantity, setOrderQuantity] = useState(1);
-  const [deliveryTime, setDeliveryTime] = useState('7:00 AM');
+const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates }: BuyerDashboardProps) => {
+  const [activeTab, setActiveTab] = useState('records');
+  const [showPayment, setShowPayment] = useState(false);
 
-  const placeOrder = () => {
-    if (selectedMilkman) {
-      onPlaceOrder(selectedMilkman, orderQuantity, deliveryTime);
-      setSelectedMilkman(null);
-      setOrderQuantity(1);
-      setDeliveryTime('7:00 AM');
-    }
+  const totalDue = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
+  const thisMonthRecords = dailyRecords.filter(record => {
+    const recordDate = new Date(record.date);
+    const currentDate = new Date();
+    return recordDate.getMonth() === currentDate.getMonth() && 
+           recordDate.getFullYear() === currentDate.getFullYear();
+  });
+
+  const handlePaymentComplete = (paymentMethod: string, transactionId: string) => {
+    setShowPayment(false);
+    // In a real app, this would update the payment status in the backend
+    console.log(`Payment completed: ${paymentMethod}, Transaction: ${transactionId}`);
   };
+
+  if (showPayment) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <PaymentOptions
+          amount={totalDue}
+          orderId={user.id}
+          onPaymentComplete={handlePaymentComplete}
+          onCancel={() => setShowPayment(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">🥛 DairyConnect Buyer</h1>
+            <h1 className="text-2xl font-bold text-gray-900">🥛 DairyConnect Customer</h1>
             <p className="text-gray-600">Welcome, {user.username}</p>
           </div>
           <Button onClick={onLogout} variant="outline">Logout</Button>
@@ -82,155 +83,120 @@ const BuyerDashboard = ({ user, onLogout, milkmen, orders, onPlaceOrder }: Buyer
       </header>
 
       <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Due Amount</p>
+                  <p className="text-2xl font-bold text-red-600">₹{totalDue}</p>
+                  <p className="text-sm text-gray-500">Pay to dairy</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">This Month</p>
+                  <p className="text-2xl font-bold text-blue-600">{thisMonthRecords.reduce((sum, r) => sum + r.quantity, 0)}L</p>
+                  <p className="text-sm text-gray-500">Milk purchased</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Current Rate</p>
+                  <p className="text-2xl font-bold text-green-600">₹{dairyRates.buyerRate}</p>
+                  <p className="text-sm text-gray-500">Per liter</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="browse">Browse Milkmen</TabsTrigger>
-            <TabsTrigger value="orders">My Orders ({orders.length})</TabsTrigger>
+            <TabsTrigger value="records">Purchase Records</TabsTrigger>
+            <TabsTrigger value="payment">Payment</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="browse" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Available Milkmen</CardTitle>
-                    <CardDescription>Choose from approved milk suppliers in your area</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {milkmen.map((milkman: Milkman) => (
-                        <div 
-                          key={milkman.id} 
-                          className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                            selectedMilkman?.id === milkman.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
-                          } ${!milkman.available ? 'opacity-50' : ''}`}
-                          onClick={() => milkman.available && setSelectedMilkman(milkman)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-medium">{milkman.name}</h3>
-                                <Badge variant={milkman.available ? 'default' : 'secondary'}>
-                                  {milkman.available ? 'Available' : 'Unavailable'}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-gray-600">@{milkman.username} • {milkman.location}</p>
-                              {milkman.distance && <p className="text-sm text-gray-500">{milkman.distance}</p>}
-                              <div className="flex items-center gap-4 mt-2">
-                                <span className="font-bold text-green-600">₹{milkman.rate}/liter</span>
-                                <span className="text-sm">⭐ {milkman.rating}</span>
-                                <span className="text-sm text-gray-500">{milkman.availableQuantity}L available</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {milkmen.length === 0 && (
-                        <p className="text-gray-500 text-center py-8">No approved milkmen available</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div>
-                {selectedMilkman && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Place Order</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <p className="font-medium">{selectedMilkman.name}</p>
-                        <p className="text-sm text-gray-600">@{selectedMilkman.username}</p>
-                        <p className="text-sm text-gray-600">{selectedMilkman.location}</p>
-                        <p className="text-sm">₹{selectedMilkman.rate}/liter</p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label>Quantity (liters)</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max={selectedMilkman.availableQuantity}
-                          value={orderQuantity}
-                          onChange={(e) => setOrderQuantity(parseInt(e.target.value) || 1)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Preferred Delivery Time</Label>
-                        <Select value={deliveryTime} onValueChange={setDeliveryTime}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="6:00 AM">6:00 AM</SelectItem>
-                            <SelectItem value="6:30 AM">6:30 AM</SelectItem>
-                            <SelectItem value="7:00 AM">7:00 AM</SelectItem>
-                            <SelectItem value="7:30 AM">7:30 AM</SelectItem>
-                            <SelectItem value="8:00 AM">8:00 AM</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="text-xl font-bold">₹{orderQuantity * selectedMilkman.rate}</p>
-                      </div>
-
-                      <Button onClick={placeOrder} className="w-full" disabled={orderQuantity > selectedMilkman.availableQuantity}>
-                        Place Order
-                      </Button>
-                      {orderQuantity > selectedMilkman.availableQuantity && (
-                        <p className="text-sm text-red-600">Quantity exceeds available stock</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="orders" className="mt-6">
+          <TabsContent value="records" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Order History</CardTitle>
-                <CardDescription>Track your milk orders and delivery status</CardDescription>
+                <CardTitle>Milk Purchase History</CardTitle>
+                <CardDescription>Track your daily milk purchases from the dairy</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {orders.map((order: Order) => (
-                    <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  {dailyRecords.map((record: DailyRecord) => (
+                    <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">Order #{order.id}</p>
-                          <Badge variant={
-                            order.status === 'delivered' ? 'default' : 
-                            order.status === 'pending' ? 'destructive' :
-                            order.status === 'admin_approved' ? 'secondary' :
-                            order.status === 'milkman_accepted' ? 'outline' :
-                            order.status === 'rejected' ? 'destructive' : 'secondary'
-                          }>
-                            {order.status === 'admin_approved' ? 'Approved' : 
-                             order.status === 'milkman_accepted' ? 'Accepted' :
-                             order.status.replace('_', ' ').toUpperCase()}
-                          </Badge>
+                          <p className="font-medium">Record #{record.id}</p>
+                          <Badge variant="default">Purchase</Badge>
                         </div>
-                        <p className="text-sm text-gray-600">{order.milkmanName} • {order.date}</p>
-                        <p className="text-sm">{order.quantity} liters • {order.deliveryTime}</p>
+                        <p className="text-sm text-gray-600">Date: {record.date}</p>
+                        <p className="text-sm">{record.quantity} liters @ ₹{record.rate}/L</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">₹{order.amount}</p>
-                        <p className="text-sm text-gray-600">₹{order.rate}/L</p>
+                        <p className="font-bold">₹{record.amount}</p>
+                        <p className="text-sm text-gray-600">Amount</p>
                       </div>
                     </div>
                   ))}
-                  {orders.length === 0 && (
-                    <p className="text-gray-500 text-center py-8">No orders placed yet</p>
+                  {dailyRecords.length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No purchase records yet</p>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="payment" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Center</CardTitle>
+                <CardDescription>Pay your outstanding amount to the dairy</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <h3 className="font-medium text-red-800 mb-2">Outstanding Amount</h3>
+                  <p className="text-3xl font-bold text-red-600">₹{totalDue}</p>
+                  <p className="text-sm text-red-600 mt-1">Total amount due to dairy</p>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-medium">Payment Breakdown:</h4>
+                  {dailyRecords.map((record, index) => (
+                    <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                      <span>{record.date} - {record.quantity}L</span>
+                      <span>₹{record.amount}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {totalDue > 0 && (
+                  <Button 
+                    onClick={() => setShowPayment(true)}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    size="lg"
+                  >
+                    Pay ₹{totalDue} Now
+                  </Button>
+                )}
+
+                {totalDue === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-green-600 font-medium">✅ All payments are up to date!</p>
+                    <p className="text-sm text-gray-500">No outstanding amount</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -243,20 +209,20 @@ const BuyerDashboard = ({ user, onLogout, milkmen, orders, onPlaceOrder }: Buyer
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Username</Label>
-                    <Input value={user.username} readOnly />
+                    <label className="text-sm font-medium">Username</label>
+                    <input className="w-full p-2 border rounded" value={user.username} readOnly />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={user.email} readOnly />
+                    <label className="text-sm font-medium">Email</label>
+                    <input className="w-full p-2 border rounded" value={user.email} readOnly />
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input value={user.phone || ''} />
+                    <label className="text-sm font-medium">Phone</label>
+                    <input className="w-full p-2 border rounded" value={user.phone || ''} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Location</Label>
-                    <Input value={user.location || ''} />
+                    <label className="text-sm font-medium">Location</label>
+                    <input className="w-full p-2 border rounded" value={user.location || ''} />
                   </div>
                 </div>
                 <Button>Update Profile</Button>

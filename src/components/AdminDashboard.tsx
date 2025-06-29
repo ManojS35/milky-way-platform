@@ -5,21 +5,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, TrendingUp, ShoppingCart, Truck, CreditCard } from 'lucide-react';
+import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar } from 'lucide-react';
+import DailyRecordCalendar from './DailyRecordCalendar';
 
-interface Order {
+interface DailyRecord {
   id: number;
-  buyerId: number;
-  buyerName: string;
-  milkmanId: number;
-  milkmanName: string;
+  userId: number;
+  userName: string;
+  userRole: 'buyer' | 'milkman';
+  date: string;
   quantity: number;
   rate: number;
   amount: number;
-  status: 'pending' | 'admin_approved' | 'milkman_accepted' | 'delivered' | 'rejected';
-  date: string;
-  location?: string;
-  deliveryTime?: string;
+  type: 'purchase' | 'supply';
 }
 
 interface Milkman {
@@ -27,16 +25,14 @@ interface Milkman {
   name: string;
   username: string;
   location: string;
-  rate: number;
   status: 'pending' | 'approved' | 'rejected';
   phone: string;
-  availableQuantity: number;
   rating: number;
   distance?: string;
   available: boolean;
   accountNumber?: string;
   ifscCode?: string;
-  pendingPayment?: number;
+  totalDue?: number;
 }
 
 interface User {
@@ -48,58 +44,70 @@ interface User {
   location?: string;
 }
 
+interface DairyRates {
+  milkmanRate: number;
+  buyerRate: number;
+}
+
 interface AdminDashboardProps {
   user: User;
   onLogout: () => void;
-  orders: Order[];
   milkmen: Milkman[];
   users: User[];
-  onApproveOrder: (orderId: number) => void;
-  onRejectOrder: (orderId: number) => void;
+  dailyRecords: DailyRecord[];
+  dairyRates: DairyRates;
   onApproveMilkman: (milkmanId: number) => void;
   onRejectMilkman: (milkmanId: number) => void;
-  onUpdateMilkmanRate?: (milkmanId: number, rate: number) => void;
-  onPayMilkman?: (milkmanId: number, amount: number) => void;
+  onUpdateDairyRates: (milkmanRate: number, buyerRate: number) => void;
+  onPayMilkman: (milkmanId: number, amount: number) => void;
+  onAddDailyRecord: (userId: number, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => void;
 }
 
 const AdminDashboard = ({ 
   user, 
   onLogout, 
-  orders, 
   milkmen, 
   users, 
-  onApproveOrder, 
-  onRejectOrder, 
+  dailyRecords,
+  dairyRates,
   onApproveMilkman, 
   onRejectMilkman,
-  onUpdateMilkmanRate,
-  onPayMilkman
+  onUpdateDairyRates,
+  onPayMilkman,
+  onAddDailyRecord
 }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedMilkmanRate, setSelectedMilkmanRate] = useState<{[key: number]: number}>({});
+  const [newRates, setNewRates] = useState({
+    milkmanRate: dairyRates.milkmanRate,
+    buyerRate: dairyRates.buyerRate
+  });
+
+  const todayRecords = dailyRecords.filter(r => r.date === new Date().toISOString().split('T')[0]);
+  const totalRevenue = dailyRecords.filter(r => r.type === 'purchase').reduce((sum, r) => sum + r.amount, 0);
+  const totalExpenses = dailyRecords.filter(r => r.type === 'supply').reduce((sum, r) => sum + r.amount, 0);
+  const totalProfit = totalRevenue - totalExpenses;
+  const pendingMilkmen = milkmen.filter(m => m.status === 'pending');
+  const totalPendingPayments = milkmen.reduce((sum, m) => sum + (m.totalDue || 0), 0);
 
   const stats = [
     { title: 'Total Users', value: users.length.toString(), icon: Users, change: '+12%' },
-    { title: 'Daily Revenue', value: `₹${orders.filter(o => o.status === 'delivered').reduce((sum: number, o: Order) => sum + o.amount, 0)}`, icon: TrendingUp, change: '+8%' },
-    { title: 'Pending Orders', value: orders.filter((o: Order) => o.status === 'pending').length.toString(), icon: ShoppingCart, change: '+15%' },
-    { title: 'Active Milkmen', value: milkmen.filter((m: Milkman) => m.status === 'approved').length.toString(), icon: Truck, change: '+5%' }
+    { title: 'Daily Profit', value: `₹${totalProfit}`, icon: TrendingUp, change: '+8%' },
+    { title: "Today's Records", value: todayRecords.length.toString(), icon: ShoppingCart, change: '+15%' },
+    { title: 'Active Milkmen', value: milkmen.filter(m => m.status === 'approved').length.toString(), icon: Truck, change: '+5%' }
   ];
 
-  const pendingOrders = orders.filter((o: Order) => o.status === 'pending');
-  const pendingMilkmen = milkmen.filter((m: Milkman) => m.status === 'pending');
-  const totalPendingPayments = milkmen.reduce((sum, m) => sum + (m.pendingPayment || 0), 0);
-
-  const handleUpdateMilkmanRate = (milkmanId: number) => {
-    const rate = selectedMilkmanRate[milkmanId];
-    if (rate && onUpdateMilkmanRate) {
-      onUpdateMilkmanRate(milkmanId, rate);
+  const handleUpdateRates = () => {
+    if (newRates.milkmanRate > 0 && newRates.buyerRate > 0 && newRates.buyerRate > newRates.milkmanRate) {
+      onUpdateDairyRates(newRates.milkmanRate, newRates.buyerRate);
     }
   };
 
-  const handlePayMilkman = (milkmanId: number, amount: number) => {
-    if (onPayMilkman) {
-      onPayMilkman(milkmanId, amount);
-    }
+  const getBuyerDues = () => {
+    const buyerDues: { [key: string]: number } = {};
+    dailyRecords.filter(r => r.type === 'purchase').forEach(record => {
+      buyerDues[record.userName] = (buyerDues[record.userName] || 0) + record.amount;
+    });
+    return buyerDues;
   };
 
   return (
@@ -108,7 +116,7 @@ const AdminDashboard = ({
         <div className="px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">🥛 DairyConnect Admin</h1>
-            <p className="text-gray-600">Welcome back, {user.username}</p>
+            <p className="text-gray-600">Welcome back, {user.username} (Dairy Owner)</p>
           </div>
           <Button onClick={onLogout} variant="outline">Logout</Button>
         </div>
@@ -135,8 +143,9 @@ const AdminDashboard = ({
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="orders">
-              Orders {pendingOrders.length > 0 && <Badge className="ml-2">{pendingOrders.length}</Badge>}
+            <TabsTrigger value="calendar">
+              <Calendar className="w-4 h-4 mr-2" />
+              Daily Records
             </TabsTrigger>
             <TabsTrigger value="milkmen">
               Milkmen {pendingMilkmen.length > 0 && <Badge className="ml-2">{pendingMilkmen.length}</Badge>}
@@ -145,6 +154,7 @@ const AdminDashboard = ({
             <TabsTrigger value="payments">
               Payments <Badge className="ml-2">₹{totalPendingPayments}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
           </TabsList>
 
@@ -152,103 +162,64 @@ const AdminDashboard = ({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pending Orders ({pendingOrders.length})</CardTitle>
+                  <CardTitle>Today's Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {pendingOrders.slice(0, 3).map((order: Order) => (
-                      <div key={order.id} className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <div>
-                          <p className="font-medium">Order #{order.id}</p>
-                          <p className="text-sm text-gray-600">{order.buyerName} → {order.milkmanName}</p>
-                          <p className="text-sm">{order.quantity} liters • ₹{order.amount}</p>
-                        </div>
-                        <Badge variant="outline">Pending Approval</Badge>
-                      </div>
-                    ))}
-                    {pendingOrders.length === 0 && (
-                      <p className="text-gray-500 text-center py-4">No pending orders</p>
-                    )}
+                    <div className="flex justify-between">
+                      <span>Milk Purchased (from farmers):</span>
+                      <span className="font-bold">{todayRecords.filter(r => r.type === 'supply').reduce((sum, r) => sum + r.quantity, 0)}L</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Milk Sold (to customers):</span>
+                      <span className="font-bold">{todayRecords.filter(r => r.type === 'purchase').reduce((sum, r) => sum + r.quantity, 0)}L</span>
+                    </div>
+                    <div className="flex justify-between text-green-600">
+                      <span>Today's Profit:</span>
+                      <span className="font-bold">₹{todayRecords.filter(r => r.type === 'purchase').reduce((sum, r) => sum + r.amount, 0) - todayRecords.filter(r => r.type === 'supply').reduce((sum, r) => sum + r.amount, 0)}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Pending Payments</CardTitle>
+                  <CardTitle>Current Rates</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {milkmen.filter(m => (m.pendingPayment || 0) > 0).slice(0, 3).map((milkman: Milkman) => (
-                      <div key={milkman.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                        <div>
-                          <p className="font-medium">{milkman.name}</p>
-                          <p className="text-sm text-gray-600">{milkman.location}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-600">₹{milkman.pendingPayment || 0}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {totalPendingPayments === 0 && (
-                      <p className="text-gray-500 text-center py-4">No pending payments</p>
-                    )}
+                    <div className="flex justify-between">
+                      <span>Rate paid to farmers:</span>
+                      <span className="font-bold text-red-600">₹{dairyRates.milkmanRate}/L</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Rate charged to customers:</span>
+                      <span className="font-bold text-green-600">₹{dairyRates.buyerRate}/L</span>
+                    </div>
+                    <div className="flex justify-between text-blue-600">
+                      <span>Profit per liter:</span>
+                      <span className="font-bold">₹{dairyRates.buyerRate - dairyRates.milkmanRate}/L</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="orders" className="mt-6">
+          <TabsContent value="calendar" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Order Management</CardTitle>
-                <CardDescription>Review and approve customer orders</CardDescription>
+                <CardTitle>Daily Records Management</CardTitle>
+                <CardDescription>Track daily milk purchases and supplies with calendar view</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {orders.map((order: Order) => (
-                    <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">Order #{order.id}</h3>
-                          <Badge variant={
-                            order.status === 'delivered' ? 'default' : 
-                            order.status === 'pending' ? 'destructive' :
-                            order.status === 'admin_approved' ? 'secondary' :
-                            order.status === 'milkman_accepted' ? 'outline' : 'secondary'
-                          }>
-                            {order.status.replace('_', ' ').toUpperCase()}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600">{order.buyerName} → {order.milkmanName}</p>
-                        <p className="text-sm">{order.quantity} liters @ ₹{order.rate}/L = ₹{order.amount}</p>
-                        <p className="text-sm text-gray-500">{order.date} • {order.deliveryTime}</p>
-                      </div>
-                      {order.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={() => onApproveOrder(order.id)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Approve
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => onRejectOrder(order.id)}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {orders.length === 0 && (
-                    <p className="text-gray-500 text-center py-8">No orders found</p>
-                  )}
-                </div>
+                <DailyRecordCalendar
+                  dailyRecords={dailyRecords}
+                  users={users}
+                  milkmanRate={dairyRates.milkmanRate}
+                  buyerRate={dairyRates.buyerRate}
+                  onAddRecord={onAddDailyRecord}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -271,7 +242,7 @@ const AdminDashboard = ({
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600">{milkman.location} • {milkman.phone}</p>
-                        <p className="text-sm">Rate: ₹{milkman.rate}/liter • Available: {milkman.availableQuantity}L</p>
+                        <p className="text-sm">Total Due: ₹{milkman.totalDue || 0}</p>
                       </div>
                       {milkman.status === 'pending' && (
                         <div className="flex gap-2">
@@ -301,44 +272,42 @@ const AdminDashboard = ({
           <TabsContent value="rates" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Rate Management</CardTitle>
-                <CardDescription>Set milk rates for each milkman</CardDescription>
+                <CardTitle>Dairy Rate Management</CardTitle>
+                <CardDescription>Set rates for milk purchase and sale</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {milkmen.filter(m => m.status === 'approved').map((milkman: Milkman) => (
-                    <div key={milkman.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <h3 className="font-medium">{milkman.name}</h3>
-                        <p className="text-sm text-gray-600">{milkman.location}</p>
-                        <p className="text-sm">Current Rate: ₹{milkman.rate}/liter</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm">New Rate:</Label>
-                        <Input
-                          type="number"
-                          placeholder="Rate"
-                          className="w-24"
-                          value={selectedMilkmanRate[milkman.id] || ''}
-                          onChange={(e) => setSelectedMilkmanRate({
-                            ...selectedMilkmanRate,
-                            [milkman.id]: parseInt(e.target.value) || 0
-                          })}
-                        />
-                        <Button 
-                          size="sm"
-                          onClick={() => handleUpdateMilkmanRate(milkman.id)}
-                          disabled={!selectedMilkmanRate[milkman.id]}
-                        >
-                          Update
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {milkmen.filter(m => m.status === 'approved').length === 0 && (
-                    <p className="text-gray-500 text-center py-8">No approved milkmen</p>
-                  )}
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Rate paid to farmers (₹/liter)</Label>
+                    <Input
+                      type="number"
+                      value={newRates.milkmanRate}
+                      onChange={(e) => setNewRates({...newRates, milkmanRate: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Rate charged to customers (₹/liter)</Label>
+                    <Input
+                      type="number"
+                      value={newRates.buyerRate}
+                      onChange={(e) => setNewRates({...newRates, buyerRate: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
                 </div>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    Profit per liter: ₹{newRates.buyerRate - newRates.milkmanRate}
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleUpdateRates}
+                  disabled={newRates.milkmanRate <= 0 || newRates.buyerRate <= 0 || newRates.buyerRate <= newRates.milkmanRate}
+                >
+                  Update Rates
+                </Button>
+                {newRates.buyerRate <= newRates.milkmanRate && (
+                  <p className="text-sm text-red-600">Customer rate must be higher than farmer rate to ensure profit</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -347,11 +316,11 @@ const AdminDashboard = ({
             <Card>
               <CardHeader>
                 <CardTitle>Payment Management</CardTitle>
-                <CardDescription>Pay milkmen for delivered orders</CardDescription>
+                <CardDescription>Pay milkmen for supplied milk</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {milkmen.filter(m => (m.pendingPayment || 0) > 0).map((milkman: Milkman) => (
+                  {milkmen.filter(m => (m.totalDue || 0) > 0).map((milkman: Milkman) => (
                     <div key={milkman.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-4">
                         <div>
@@ -363,14 +332,14 @@ const AdminDashboard = ({
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-green-600">₹{milkman.pendingPayment}</p>
-                          <p className="text-sm text-gray-600">Pending Payment</p>
+                          <p className="text-lg font-bold text-green-600">₹{milkman.totalDue}</p>
+                          <p className="text-sm text-gray-600">Total Due</p>
                         </div>
                       </div>
                       <div className="flex gap-2">
                         <Button 
                           size="sm"
-                          onClick={() => handlePayMilkman(milkman.id, milkman.pendingPayment || 0)}
+                          onClick={() => onPayMilkman(milkman.id, milkman.totalDue || 0)}
                           disabled={!milkman.accountNumber || !milkman.ifscCode}
                           className="bg-green-600 hover:bg-green-700"
                         >
@@ -385,9 +354,48 @@ const AdminDashboard = ({
                       </div>
                     </div>
                   ))}
-                  {milkmen.filter(m => (m.pendingPayment || 0) > 0).length === 0 && (
+                  {milkmen.filter(m => (m.totalDue || 0) > 0).length === 0 && (
                     <p className="text-gray-500 text-center py-8">No pending payments</p>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reports" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Financial Reports</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h3 className="font-medium text-green-800">Total Revenue</h3>
+                    <p className="text-2xl font-bold text-green-600">₹{totalRevenue}</p>
+                    <p className="text-sm text-green-600">From milk sales</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg">
+                    <h3 className="font-medium text-red-800">Total Expenses</h3>
+                    <p className="text-2xl font-bold text-red-600">₹{totalExpenses}</p>
+                    <p className="text-sm text-red-600">Milk purchases</p>
+                  </div>
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h3 className="font-medium text-blue-800">Net Profit</h3>
+                    <p className="text-2xl font-bold text-blue-600">₹{totalProfit}</p>
+                    <p className="text-sm text-blue-600">Overall profit</p>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="font-medium mb-4">Customer Dues</h3>
+                  <div className="space-y-2">
+                    {Object.entries(getBuyerDues()).map(([buyer, amount]) => (
+                      <div key={buyer} className="flex justify-between p-2 bg-gray-50 rounded">
+                        <span>{buyer}</span>
+                        <span className="font-bold">₹{amount}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -411,6 +419,11 @@ const AdminDashboard = ({
                         </div>
                         <p className="text-sm text-gray-600">{user.email}</p>
                         {user.location && <p className="text-sm text-gray-500">{user.location}</p>}
+                        {user.role === 'buyer' && (
+                          <p className="text-sm text-blue-600">
+                            Total Due: ₹{getBuyerDues()[user.username] || 0}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-600">User ID: {user.id}</p>
