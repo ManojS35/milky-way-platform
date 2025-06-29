@@ -120,9 +120,9 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Rating</p>
-                  <p className="text-2xl font-bold text-yellow-600">⭐ {milkmanData?.rating || 0}</p>
-                  <p className="text-sm text-gray-500">Customer rating</p>
+                  <p className="text-sm font-medium text-gray-600">Total Earnings</p>
+                  <p className="text-2xl font-bold text-green-600">₹{totalEarned}</p>
+                  <p className="text-sm text-gray-500">All time</p>
                 </div>
               </div>
             </CardContent>

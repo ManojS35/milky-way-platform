@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSign } from 'lucide-react';
+import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSign, Package } from 'lucide-react';
 import DailyRecordCalendar from './DailyRecordCalendar';
 
 interface DailyRecord {
@@ -49,6 +49,27 @@ interface DairyRates {
   buyerRate: number;
 }
 
+interface Product {
+  id: number;
+  name: string;
+  category: 'feed' | 'dairy_product';
+  price: number;
+  unit: string;
+}
+
+interface ProductSale {
+  id: number;
+  productId: number;
+  productName: string;
+  buyerId: number;
+  buyerName: string;
+  buyerRole: 'buyer' | 'milkman';
+  quantity: number;
+  rate: number;
+  amount: number;
+  date: string;
+}
+
 interface AdminDashboardProps {
   user: User;
   onLogout: () => void;
@@ -66,11 +87,15 @@ interface AdminDashboardProps {
     date: string;
   }>;
   buyerDues: { [key: string]: { userId: number; userName: string; totalPurchases: number; totalPayments: number; due: number } };
+  products: Product[];
+  productSales: ProductSale[];
   onApproveMilkman: (milkmanId: number) => void;
   onRejectMilkman: (milkmanId: number) => void;
   onUpdateDairyRates: (milkmanRate: number, buyerRate: number) => void;
   onPayMilkman: (milkmanId: number, amount: number) => void;
   onAddDailyRecord: (userId: number, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => void;
+  onAddProduct: (name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => void;
+  onSellProduct: (productId: number, buyerId: number, buyerName: string, buyerRole: 'buyer' | 'milkman', quantity: number) => void;
 }
 
 const AdminDashboard = ({ 
@@ -82,16 +107,31 @@ const AdminDashboard = ({
   dairyRates,
   payments,
   buyerDues,
+  products,
+  productSales,
   onApproveMilkman, 
   onRejectMilkman,
   onUpdateDairyRates,
   onPayMilkman,
-  onAddDailyRecord
+  onAddDailyRecord,
+  onAddProduct,
+  onSellProduct
 }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [newRates, setNewRates] = useState({
     milkmanRate: dairyRates.milkmanRate,
     buyerRate: dairyRates.buyerRate
+  });
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    category: 'feed' as 'feed' | 'dairy_product',
+    price: 0,
+    unit: ''
+  });
+  const [productSaleForm, setProductSaleForm] = useState({
+    productId: 0,
+    buyerId: 0,
+    quantity: 0
   });
 
   const todayRecords = dailyRecords.filter(r => r.date === new Date().toISOString().split('T')[0]);
@@ -101,6 +141,7 @@ const AdminDashboard = ({
   const pendingMilkmen = milkmen.filter(m => m.status === 'pending');
   const totalPendingPayments = milkmen.reduce((sum, m) => sum + (m.totalDue || 0), 0);
   const totalBuyerDues = Object.values(buyerDues).reduce((sum, buyer) => sum + buyer.due, 0);
+  const totalProductSales = productSales.reduce((sum, sale) => sum + sale.amount, 0);
 
   const stats = [
     { title: 'Total Users', value: users.length.toString(), icon: Users, change: '+12%' },
@@ -112,6 +153,29 @@ const AdminDashboard = ({
   const handleUpdateRates = () => {
     if (newRates.milkmanRate > 0 && newRates.buyerRate > 0 && newRates.buyerRate > newRates.milkmanRate) {
       onUpdateDairyRates(newRates.milkmanRate, newRates.buyerRate);
+    }
+  };
+
+  const handleAddProduct = () => {
+    if (newProduct.name && newProduct.price > 0 && newProduct.unit) {
+      onAddProduct(newProduct.name, newProduct.category, newProduct.price, newProduct.unit);
+      setNewProduct({ name: '', category: 'feed', price: 0, unit: '' });
+    }
+  };
+
+  const handleSellProduct = () => {
+    if (productSaleForm.productId && productSaleForm.buyerId && productSaleForm.quantity > 0) {
+      const buyer = users.find(u => u.id === productSaleForm.buyerId);
+      if (buyer) {
+        onSellProduct(
+          productSaleForm.productId, 
+          productSaleForm.buyerId, 
+          buyer.username, 
+          buyer.role as 'buyer' | 'milkman', 
+          productSaleForm.quantity
+        );
+        setProductSaleForm({ productId: 0, buyerId: 0, quantity: 0 });
+      }
     }
   };
 
@@ -155,6 +219,10 @@ const AdminDashboard = ({
             <TabsTrigger value="buyer-dues">
               <DollarSign className="w-4 h-4 mr-2" />
               Buyer Dues <Badge className="ml-2">₹{totalBuyerDues}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="products">
+              <Package className="w-4 h-4 mr-2" />
+              Products
             </TabsTrigger>
             <TabsTrigger value="milkmen">
               Milkmen {pendingMilkmen.length > 0 && <Badge className="ml-2">{pendingMilkmen.length}</Badge>}
@@ -272,6 +340,165 @@ const AdminDashboard = ({
 
                   {Object.values(buyerDues).filter(buyer => buyer.due > 0).length === 0 && (
                     <p className="text-gray-500 text-center py-8">No outstanding dues from buyers</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="products" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add New Product</CardTitle>
+                  <CardDescription>Add cow feeds and dairy products to sell</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Product Name</Label>
+                    <Input
+                      value={newProduct.name}
+                      onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                      placeholder="e.g., Cow Feed Premium, Ghee, Curd"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={newProduct.category}
+                      onChange={(e) => setNewProduct({...newProduct, category: e.target.value as 'feed' | 'dairy_product'})}
+                    >
+                      <option value="feed">Cow Feed</option>
+                      <option value="dairy_product">Dairy Product</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Price</Label>
+                      <Input
+                        type="number"
+                        value={newProduct.price}
+                        onChange={(e) => setNewProduct({...newProduct, price: parseFloat(e.target.value) || 0})}
+                        placeholder="Price per unit"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Unit</Label>
+                      <Input
+                        value={newProduct.unit}
+                        onChange={(e) => setNewProduct({...newProduct, unit: e.target.value})}
+                        placeholder="kg, liter, piece"
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={handleAddProduct} disabled={!newProduct.name || newProduct.price <= 0 || !newProduct.unit}>
+                    Add Product
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sell Product</CardTitle>
+                  <CardDescription>Record product sales to buyers and milkmen</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Product</Label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={productSaleForm.productId}
+                      onChange={(e) => setProductSaleForm({...productSaleForm, productId: parseInt(e.target.value)})}
+                    >
+                      <option value={0}>Select Product</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} - ₹{product.price}/{product.unit}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Customer</Label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-md"
+                      value={productSaleForm.buyerId}
+                      onChange={(e) => setProductSaleForm({...productSaleForm, buyerId: parseInt(e.target.value)})}
+                    >
+                      <option value={0}>Select Customer</option>
+                      {users.filter(u => u.role !== 'admin').map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.username} ({user.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      value={productSaleForm.quantity}
+                      onChange={(e) => setProductSaleForm({...productSaleForm, quantity: parseFloat(e.target.value) || 0})}
+                      placeholder="Quantity"
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleSellProduct} 
+                    disabled={!productSaleForm.productId || !productSaleForm.buyerId || productSaleForm.quantity <= 0}
+                  >
+                    Record Sale
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Product Inventory</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {products.map(product => (
+                    <div key={product.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium">{product.name}</h3>
+                        <Badge variant={product.category === 'feed' ? 'secondary' : 'default'}>
+                          {product.category === 'feed' ? 'Feed' : 'Dairy'}
+                        </Badge>
+                      </div>
+                      <p className="text-lg font-bold text-green-600">₹{product.price}/{product.unit}</p>
+                    </div>
+                  ))}
+                  {products.length === 0 && (
+                    <p className="text-gray-500 col-span-full text-center py-8">No products added yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Recent Product Sales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {productSales.slice(-10).map(sale => (
+                    <div key={sale.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h3 className="font-medium">{sale.productName}</h3>
+                        <p className="text-sm text-gray-600">
+                          Sold to: {sale.buyerName} ({sale.buyerRole}) • {sale.date}
+                        </p>
+                        <p className="text-sm">{sale.quantity} units @ ₹{sale.rate}/unit</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600">₹{sale.amount}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {productSales.length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No product sales yet</p>
                   )}
                 </div>
               </CardContent>
@@ -425,8 +652,8 @@ const AdminDashboard = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="p-4 bg-green-50 rounded-lg">
                     <h3 className="font-medium text-green-800">Total Revenue</h3>
-                    <p className="text-2xl font-bold text-green-600">₹{totalRevenue}</p>
-                    <p className="text-sm text-green-600">From milk sales</p>
+                    <p className="text-2xl font-bold text-green-600">₹{totalRevenue + totalProductSales}</p>
+                    <p className="text-sm text-green-600">Milk + Products</p>
                   </div>
                   <div className="p-4 bg-red-50 rounded-lg">
                     <h3 className="font-medium text-red-800">Total Expenses</h3>
@@ -435,7 +662,7 @@ const AdminDashboard = ({
                   </div>
                   <div className="p-4 bg-blue-50 rounded-lg">
                     <h3 className="font-medium text-blue-800">Net Profit</h3>
-                    <p className="text-2xl font-bold text-blue-600">₹{totalProfit}</p>
+                    <p className="text-2xl font-bold text-blue-600">₹{totalRevenue + totalProductSales - totalExpenses}</p>
                     <p className="text-sm text-blue-600">Overall profit</p>
                   </div>
                 </div>
@@ -443,10 +670,10 @@ const AdminDashboard = ({
                 <div className="mt-6">
                   <h3 className="font-medium mb-4">Customer Dues</h3>
                   <div className="space-y-2">
-                    {Object.entries(getBuyerDues()).map(([buyer, amount]) => (
-                      <div key={buyer} className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span>{buyer}</span>
-                        <span className="font-bold">₹{amount}</span>
+                    {Object.values(buyerDues).map(buyer => (
+                      <div key={buyer.userName} className="flex justify-between p-2 bg-gray-50 rounded">
+                        <span>{buyer.userName}</span>
+                        <span className="font-bold">₹{buyer.due}</span>
                       </div>
                     ))}
                   </div>
@@ -475,7 +702,7 @@ const AdminDashboard = ({
                         {user.location && <p className="text-sm text-gray-500">{user.location}</p>}
                         {user.role === 'buyer' && (
                           <p className="text-sm text-blue-600">
-                            Total Due: ₹{getBuyerDues()[user.username] || 0}
+                            Total Due: ₹{buyerDues[user.username]?.due || 0}
                           </p>
                         )}
                       </div>

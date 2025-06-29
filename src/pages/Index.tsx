@@ -48,6 +48,27 @@ interface DairyRates {
   buyerRate: number;    // Rate charged to buyers per liter
 }
 
+interface Product {
+  id: number;
+  name: string;
+  category: 'feed' | 'dairy_product';
+  price: number;
+  unit: string;
+}
+
+interface ProductSale {
+  id: number;
+  productId: number;
+  productName: string;
+  buyerId: number;
+  buyerName: string;
+  buyerRole: 'buyer' | 'milkman';
+  quantity: number;
+  rate: number;
+  amount: number;
+  date: string;
+}
+
 const Index = () => {
   const { toast } = useToast();
   
@@ -119,8 +140,18 @@ const Index = () => {
     buyerRate: 70     // Rate charged to buyers
   });
 
+  const [products, setProducts] = useState<Product[]>([
+    { id: 1, name: 'Premium Cow Feed', category: 'feed', price: 25, unit: 'kg' },
+    { id: 2, name: 'Fresh Ghee', category: 'dairy_product', price: 500, unit: 'kg' },
+    { id: 3, name: 'Homemade Curd', category: 'dairy_product', price: 60, unit: 'liter' }
+  ]);
+
+  const [productSales, setProductSales] = useState<ProductSale[]>([]);
+
   const [nextRecordId, setNextRecordId] = useState(3);
   const [nextUserId, setNextUserId] = useState(6);
+  const [nextProductId, setNextProductId] = useState(4);
+  const [nextProductSaleId, setNextProductSaleId] = useState(1);
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -306,6 +337,75 @@ const Index = () => {
     });
   };
 
+  const addProduct = (name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => {
+    const newProduct: Product = {
+      id: nextProductId,
+      name,
+      category,
+      price,
+      unit
+    };
+
+    setProducts([...products, newProduct]);
+    setNextProductId(nextProductId + 1);
+
+    toast({
+      title: "Product Added",
+      description: `${name} has been added to inventory`,
+    });
+  };
+
+  const sellProduct = (productId: number, buyerId: number, buyerName: string, buyerRole: 'buyer' | 'milkman', quantity: number) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    const amount = product.price * quantity;
+    const newSale: ProductSale = {
+      id: nextProductSaleId,
+      productId,
+      productName: product.name,
+      buyerId,
+      buyerName,
+      buyerRole,
+      quantity,
+      rate: product.price,
+      amount,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setProductSales([...productSales, newSale]);
+    setNextProductSaleId(nextProductSaleId + 1);
+
+    // Handle payment logic
+    if (buyerRole === 'milkman') {
+      // For milkman, deduct from earnings or add to due
+      const milkman = milkmen.find(m => m.id === buyerId);
+      if (milkman) {
+        const currentDue = milkman.totalDue || 0;
+        if (currentDue >= amount) {
+          // Deduct from existing due
+          setMilkmen(milkmen.map(m => 
+            m.id === buyerId 
+              ? { ...m, totalDue: currentDue - amount }
+              : m
+          ));
+        } else {
+          // Add negative due (milkman owes money)
+          setMilkmen(milkmen.map(m => 
+            m.id === buyerId 
+              ? { ...m, totalDue: currentDue - amount }
+              : m
+          ));
+        }
+      }
+    }
+
+    toast({
+      title: "Product Sold",
+      description: `Sold ${quantity} ${product.unit} of ${product.name} to ${buyerName}`,
+    });
+  };
+
   const handleBuyerPayment = (buyerId: number, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => {
     const newPayment = {
       id: nextPaymentId,
@@ -341,6 +441,20 @@ const Index = () => {
         };
       }
       buyerDues[record.userName].totalPurchases += record.amount;
+    });
+
+    // Add product purchases for buyers
+    productSales.filter(sale => sale.buyerRole === 'buyer').forEach(sale => {
+      if (!buyerDues[sale.buyerName]) {
+        buyerDues[sale.buyerName] = {
+          userId: sale.buyerId,
+          userName: sale.buyerName,
+          totalPurchases: 0,
+          totalPayments: 0,
+          due: 0
+        };
+      }
+      buyerDues[sale.buyerName].totalPurchases += sale.amount;
     });
 
     // Subtract payments
@@ -446,11 +560,15 @@ const Index = () => {
         dairyRates={dairyRates}
         payments={payments}
         buyerDues={getBuyerDues()}
+        products={products}
+        productSales={productSales}
         onApproveMilkman={approveMilkman}
         onRejectMilkman={rejectMilkman}
         onUpdateDairyRates={updateDairyRates}
         onPayMilkman={payMilkman}
         onAddDailyRecord={addDailyRecord}
+        onAddProduct={addProduct}
+        onSellProduct={sellProduct}
       />;
     case 'buyer':
       return <BuyerDashboard 
