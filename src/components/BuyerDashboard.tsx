@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import PaymentOptions from './PaymentOptions';
 
 interface DailyRecord {
@@ -37,13 +39,19 @@ interface BuyerDashboardProps {
   onLogout: () => void;
   dailyRecords: DailyRecord[];
   dairyRates: DairyRates;
+  currentDue: number;
+  onPayment: (buyerId: number, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => void;
 }
 
-const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates }: BuyerDashboardProps) => {
+const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates, currentDue, onPayment }: BuyerDashboardProps) => {
   const [activeTab, setActiveTab] = useState('records');
   const [showPayment, setShowPayment] = useState(false);
+  const [profileData, setProfileData] = useState({
+    phone: user.phone || '',
+    location: user.location || ''
+  });
 
-  const totalDue = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
+  const totalPurchases = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
   const thisMonthRecords = dailyRecords.filter(record => {
     const recordDate = new Date(record.date);
     const currentDate = new Date();
@@ -52,16 +60,15 @@ const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates }: BuyerDashb
   });
 
   const handlePaymentComplete = (paymentMethod: string, transactionId: string) => {
+    onPayment(user.id, user.username, currentDue, paymentMethod, transactionId);
     setShowPayment(false);
-    // In a real app, this would update the payment status in the backend
-    console.log(`Payment completed: ${paymentMethod}, Transaction: ${transactionId}`);
   };
 
   if (showPayment) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <PaymentOptions
-          amount={totalDue}
+          amount={currentDue}
           orderId={user.id}
           onPaymentComplete={handlePaymentComplete}
           onCancel={() => setShowPayment(false)}
@@ -88,8 +95,8 @@ const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates }: BuyerDashb
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Due Amount</p>
-                  <p className="text-2xl font-bold text-red-600">₹{totalDue}</p>
+                  <p className="text-sm font-medium text-gray-600">Current Due Amount</p>
+                  <p className="text-2xl font-bold text-red-600">₹{currentDue}</p>
                   <p className="text-sm text-gray-500">Pay to dairy</p>
                 </div>
               </div>
@@ -167,31 +174,31 @@ const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates }: BuyerDashb
               <CardContent className="space-y-6">
                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                   <h3 className="font-medium text-red-800 mb-2">Outstanding Amount</h3>
-                  <p className="text-3xl font-bold text-red-600">₹{totalDue}</p>
-                  <p className="text-sm text-red-600 mt-1">Total amount due to dairy</p>
+                  <p className="text-3xl font-bold text-red-600">₹{currentDue}</p>
+                  <p className="text-sm text-red-600 mt-1">Current amount due to dairy</p>
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-medium">Payment Breakdown:</h4>
-                  {dailyRecords.map((record, index) => (
+                  <h4 className="font-medium">Recent Purchase Summary:</h4>
+                  {dailyRecords.slice(-5).map((record, index) => (
                     <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                      <span>{record.date} - {record.quantity}L</span>
+                      <span>{record.date} - {record.quantity}L @ ₹{record.rate}/L</span>
                       <span>₹{record.amount}</span>
                     </div>
                   ))}
                 </div>
 
-                {totalDue > 0 && (
+                {currentDue > 0 && (
                   <Button 
                     onClick={() => setShowPayment(true)}
                     className="w-full bg-green-600 hover:bg-green-700"
                     size="lg"
                   >
-                    Pay ₹{totalDue} Now
+                    Pay ₹{currentDue} Now
                   </Button>
                 )}
 
-                {totalDue === 0 && (
+                {currentDue === 0 && (
                   <div className="text-center py-8">
                     <p className="text-green-600 font-medium">✅ All payments are up to date!</p>
                     <p className="text-sm text-gray-500">No outstanding amount</p>
@@ -209,20 +216,26 @@ const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates }: BuyerDashb
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Username</label>
-                    <input className="w-full p-2 border rounded" value={user.username} readOnly />
+                    <Label>Username</Label>
+                    <Input value={user.username} readOnly />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Email</label>
-                    <input className="w-full p-2 border rounded" value={user.email} readOnly />
+                    <Label>Email</Label>
+                    <Input value={user.email} readOnly />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Phone</label>
-                    <input className="w-full p-2 border rounded" value={user.phone || ''} />
+                    <Label>Phone</Label>
+                    <Input 
+                      value={profileData.phone} 
+                      onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Location</label>
-                    <input className="w-full p-2 border rounded" value={user.location || ''} />
+                    <Label>Location</Label>
+                    <Input 
+                      value={profileData.location}
+                      onChange={(e) => setProfileData({...profileData, location: e.target.value})}
+                    />
                   </div>
                 </div>
                 <Button>Update Profile</Button>

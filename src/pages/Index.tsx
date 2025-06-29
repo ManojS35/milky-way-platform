@@ -135,6 +135,18 @@ const Index = () => {
     location: ''
   });
 
+  const [payments, setPayments] = useState<Array<{
+    id: number;
+    buyerId: number;
+    buyerName: string;
+    amount: number;
+    paymentMethod: string;
+    transactionId: string;
+    date: string;
+  }>>([]);
+
+  const [nextPaymentId, setNextPaymentId] = useState(1);
+
   const isAuthorizedAdmin = (email: string, username: string) => {
     return email.toLowerCase() === ADMIN_EMAIL.toLowerCase() || username.toLowerCase() === 'admin';
   };
@@ -294,6 +306,64 @@ const Index = () => {
     });
   };
 
+  const handleBuyerPayment = (buyerId: number, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => {
+    const newPayment = {
+      id: nextPaymentId,
+      buyerId,
+      buyerName,
+      amount,
+      paymentMethod,
+      transactionId,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setPayments([...payments, newPayment]);
+    setNextPaymentId(nextPaymentId + 1);
+
+    toast({
+      title: "Payment Received",
+      description: `₹${amount} payment received from ${buyerName}`,
+    });
+  };
+
+  const getBuyerDues = () => {
+    const buyerDues: { [key: string]: { userId: number; userName: string; totalPurchases: number; totalPayments: number; due: number } } = {};
+    
+    // Calculate total purchases for each buyer
+    dailyRecords.filter(r => r.type === 'purchase').forEach(record => {
+      if (!buyerDues[record.userName]) {
+        buyerDues[record.userName] = {
+          userId: record.userId,
+          userName: record.userName,
+          totalPurchases: 0,
+          totalPayments: 0,
+          due: 0
+        };
+      }
+      buyerDues[record.userName].totalPurchases += record.amount;
+    });
+
+    // Subtract payments
+    payments.forEach(payment => {
+      if (buyerDues[payment.buyerName]) {
+        buyerDues[payment.buyerName].totalPayments += payment.amount;
+      }
+    });
+
+    // Calculate due amounts
+    Object.keys(buyerDues).forEach(buyerName => {
+      buyerDues[buyerName].due = buyerDues[buyerName].totalPurchases - buyerDues[buyerName].totalPayments;
+    });
+
+    return buyerDues;
+  };
+
+  const getBuyerDueAmount = (buyerId: number) => {
+    const buyerName = users.find(u => u.id === buyerId)?.username || '';
+    const buyerDues = getBuyerDues();
+    return buyerDues[buyerName]?.due || 0;
+  };
+
   const approveMilkman = (milkmanId: number) => {
     setMilkmen(milkmen.map(m => 
       m.id === milkmanId 
@@ -374,6 +444,8 @@ const Index = () => {
         users={users.filter(u => u.role !== 'admin')}
         dailyRecords={dailyRecords}
         dairyRates={dairyRates}
+        payments={payments}
+        buyerDues={getBuyerDues()}
         onApproveMilkman={approveMilkman}
         onRejectMilkman={rejectMilkman}
         onUpdateDairyRates={updateDairyRates}
@@ -386,6 +458,8 @@ const Index = () => {
         onLogout={handleLogout} 
         dailyRecords={dailyRecords.filter(r => r.userId === currentUser.id)}
         dairyRates={dairyRates}
+        currentDue={getBuyerDueAmount(currentUser.id)}
+        onPayment={handleBuyerPayment}
       />;
     case 'milkman':
       return <MilkmanDashboard 

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +55,10 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
   const [accountDetails, setAccountDetails] = useState({
     accountNumber: milkmanData?.accountNumber || '',
     ifscCode: milkmanData?.ifscCode || ''
+  });
+  const [profileData, setProfileData] = useState({
+    phone: user.phone || '',
+    location: user.location || ''
   });
 
   const totalEarned = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
@@ -260,11 +263,17 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
                   </div>
                   <div className="space-y-2">
                     <Label>Phone</Label>
-                    <Input value={user.phone || ''} />
+                    <Input 
+                      value={profileData.phone}
+                      onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Location</Label>
-                    <Input value={user.location || ''} />
+                    <Input 
+                      value={profileData.location}
+                      onChange={(e) => setProfileData({...profileData, location: e.target.value})}
+                    />
                   </div>
                 </div>
                 <Button>Update Profile</Button>

@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar } from 'lucide-react';
+import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSign } from 'lucide-react';
 import DailyRecordCalendar from './DailyRecordCalendar';
 
 interface DailyRecord {
@@ -56,6 +56,16 @@ interface AdminDashboardProps {
   users: User[];
   dailyRecords: DailyRecord[];
   dairyRates: DairyRates;
+  payments: Array<{
+    id: number;
+    buyerId: number;
+    buyerName: string;
+    amount: number;
+    paymentMethod: string;
+    transactionId: string;
+    date: string;
+  }>;
+  buyerDues: { [key: string]: { userId: number; userName: string; totalPurchases: number; totalPayments: number; due: number } };
   onApproveMilkman: (milkmanId: number) => void;
   onRejectMilkman: (milkmanId: number) => void;
   onUpdateDairyRates: (milkmanRate: number, buyerRate: number) => void;
@@ -70,6 +80,8 @@ const AdminDashboard = ({
   users, 
   dailyRecords,
   dairyRates,
+  payments,
+  buyerDues,
   onApproveMilkman, 
   onRejectMilkman,
   onUpdateDairyRates,
@@ -88,6 +100,7 @@ const AdminDashboard = ({
   const totalProfit = totalRevenue - totalExpenses;
   const pendingMilkmen = milkmen.filter(m => m.status === 'pending');
   const totalPendingPayments = milkmen.reduce((sum, m) => sum + (m.totalDue || 0), 0);
+  const totalBuyerDues = Object.values(buyerDues).reduce((sum, buyer) => sum + buyer.due, 0);
 
   const stats = [
     { title: 'Total Users', value: users.length.toString(), icon: Users, change: '+12%' },
@@ -100,14 +113,6 @@ const AdminDashboard = ({
     if (newRates.milkmanRate > 0 && newRates.buyerRate > 0 && newRates.buyerRate > newRates.milkmanRate) {
       onUpdateDairyRates(newRates.milkmanRate, newRates.buyerRate);
     }
-  };
-
-  const getBuyerDues = () => {
-    const buyerDues: { [key: string]: number } = {};
-    dailyRecords.filter(r => r.type === 'purchase').forEach(record => {
-      buyerDues[record.userName] = (buyerDues[record.userName] || 0) + record.amount;
-    });
-    return buyerDues;
   };
 
   return (
@@ -146,6 +151,10 @@ const AdminDashboard = ({
             <TabsTrigger value="calendar">
               <Calendar className="w-4 h-4 mr-2" />
               Daily Records
+            </TabsTrigger>
+            <TabsTrigger value="buyer-dues">
+              <DollarSign className="w-4 h-4 mr-2" />
+              Buyer Dues <Badge className="ml-2">₹{totalBuyerDues}</Badge>
             </TabsTrigger>
             <TabsTrigger value="milkmen">
               Milkmen {pendingMilkmen.length > 0 && <Badge className="ml-2">{pendingMilkmen.length}</Badge>}
@@ -220,6 +229,51 @@ const AdminDashboard = ({
                   buyerRate={dairyRates.buyerRate}
                   onAddRecord={onAddDailyRecord}
                 />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="buyer-dues" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Buyer Due Amounts</CardTitle>
+                <CardDescription>Outstanding payments from milk buyers</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="font-medium text-blue-800 mb-2">Total Outstanding</h3>
+                    <p className="text-3xl font-bold text-blue-600">₹{totalBuyerDues}</p>
+                    <p className="text-sm text-blue-600 mt-1">Total amount due from all buyers</p>
+                  </div>
+
+                  {Object.values(buyerDues).filter(buyer => buyer.due > 0).map((buyer) => (
+                    <div key={buyer.userId} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-medium">{buyer.userName}</h3>
+                          <p className="text-sm text-gray-600">Customer ID: {buyer.userId}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-red-600">₹{buyer.due}</p>
+                          <p className="text-sm text-gray-600">Due Amount</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="p-2 bg-red-50 rounded">
+                          <span className="text-red-600">Total Purchases: ₹{buyer.totalPurchases}</span>
+                        </div>
+                        <div className="p-2 bg-green-50 rounded">
+                          <span className="text-green-600">Total Payments: ₹{buyer.totalPayments}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {Object.values(buyerDues).filter(buyer => buyer.due > 0).length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No outstanding dues from buyers</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
