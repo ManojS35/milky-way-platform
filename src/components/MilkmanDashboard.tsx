@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,6 +86,7 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
     }
   };
 
+  // Fix the due calculation - milkman owes money when totalDue is negative
   const milkmanDue = (milkmanData?.totalDue || 0) < 0 ? Math.abs(milkmanData?.totalDue || 0) : 0;
 
   return (
@@ -111,7 +113,7 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">
-                    {milkmanDue > 0 ? 'Amount Due' : 'Total Due'}
+                    {milkmanDue > 0 ? 'Amount Due' : 'Total Earnings'}
                   </p>
                   <p className={`text-2xl font-bold ${milkmanDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
                     ₹{milkmanDue > 0 ? milkmanDue : (milkmanData?.totalDue || 0)}
@@ -327,7 +329,6 @@ const MilkmanDashboard = ({ user, onLogout, dailyRecords, milkmanData, onUpdateA
 
       {showPaymentOptions && (
         <PaymentOptions
-          isOpen={showPaymentOptions}
           onClose={() => setShowPaymentOptions(false)}
           dueAmount={milkmanDue}
           customerName={user.username}

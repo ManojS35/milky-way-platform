@@ -72,13 +72,15 @@ interface ProductSale {
 const Index = () => {
   const { toast } = useToast();
   
-  // Secure admin credentials - only authorized admin
-  const ADMIN_EMAIL = 'manojs030504@gmail.com';
-  const ADMIN_PASSWORD = 'Manojs@04';
+  // Updated admin credentials - added second admin
+  const ADMIN_CREDENTIALS = [
+    { email: 'manojs030504@gmail.com', password: 'Manojs@04' },
+    { email: 'madhusudhanhk321@gmail.com', password: '1234' }
+  ];
   
-  // Global state for users and daily records
+  // Global state for users and daily records - removed demo transactions
   const [users, setUsers] = useState<User[]>([
-    { id: 1, username: 'admin', email: ADMIN_EMAIL, role: 'admin' },
+    { id: 1, username: 'admin', email: 'manojs030504@gmail.com', role: 'admin' },
     { id: 2, username: 'priya_sharma', email: 'priya@example.com', role: 'buyer', phone: '+91-9876543210', location: 'Sector 18' },
     { id: 3, username: 'ramesh_kumar', email: 'ramesh@example.com', role: 'milkman', phone: '+91-9876543211', location: 'Sector 21' }
   ]);
@@ -110,30 +112,8 @@ const Index = () => {
     }
   ]);
 
-  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([
-    {
-      id: 1,
-      userId: 2,
-      userName: 'priya_sharma',
-      userRole: 'buyer',
-      date: '2024-01-15',
-      quantity: 2,
-      rate: 70,
-      amount: 140,
-      type: 'purchase'
-    },
-    {
-      id: 2,
-      userId: 3,
-      userName: 'ramesh_kumar',
-      userRole: 'milkman',
-      date: '2024-01-15',
-      quantity: 50,
-      rate: 55,
-      amount: 2750,
-      type: 'supply'
-    }
-  ]);
+  // Removed demo transactions - start with empty array
+  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([]);
 
   const [dairyRates, setDairyRates] = useState<DairyRates>({
     milkmanRate: 55,  // Rate paid to milkmen
@@ -148,7 +128,7 @@ const Index = () => {
 
   const [productSales, setProductSales] = useState<ProductSale[]>([]);
 
-  const [nextRecordId, setNextRecordId] = useState(3);
+  const [nextRecordId, setNextRecordId] = useState(1);
   const [nextUserId, setNextUserId] = useState(6);
   const [nextProductId, setNextProductId] = useState(4);
   const [nextProductSaleId, setNextProductSaleId] = useState(1);
@@ -191,15 +171,19 @@ const Index = () => {
   const [nextMilkmanPaymentId, setNextMilkmanPaymentId] = useState(1);
 
   const isAuthorizedAdmin = (email: string, username: string) => {
-    return email.toLowerCase() === ADMIN_EMAIL.toLowerCase() || username.toLowerCase() === 'admin';
+    return ADMIN_CREDENTIALS.some(admin => admin.email.toLowerCase() === email.toLowerCase()) || username.toLowerCase() === 'admin';
   };
 
   const handleLogin = (type: string, username: string, email?: string, password?: string) => {
     // Handle email/password login
     if (type === 'login' && email && password) {
-      // Check for admin login
-      if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase() && password === ADMIN_PASSWORD) {
-        const adminUser = { id: 1, username: 'admin', email: ADMIN_EMAIL, role: 'admin' as UserRole };
+      // Check for admin login with multiple admin credentials
+      const adminCred = ADMIN_CREDENTIALS.find(admin => 
+        admin.email.toLowerCase() === email.toLowerCase() && admin.password === password
+      );
+      
+      if (adminCred) {
+        const adminUser = { id: 1, username: 'admin', email: adminCred.email, role: 'admin' as UserRole };
         setCurrentUser(adminUser);
         toast({
           title: "Admin Login Successful",
@@ -561,10 +545,10 @@ const Index = () => {
     setMilkmanPayments([...milkmanPayments, newPayment]);
     setNextMilkmanPaymentId(nextMilkmanPaymentId + 1);
 
-    // Update milkman's due amount
+    // Update milkman's due amount - reduce the due by the payment amount
     setMilkmen(milkmen.map(m => 
       m.id === milkmanId 
-        ? { ...m, totalDue: (m.totalDue || 0) + Math.abs(amount) }
+        ? { ...m, totalDue: Math.max(0, (m.totalDue || 0) - amount) }
         : m
     ));
 
