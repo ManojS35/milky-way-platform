@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSign, Package, Settings } from 'lucide-react';
+import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSign, Package, Settings, Shield } from 'lucide-react';
 import DailyRecordCalendar from './DailyRecordCalendar';
 
 interface DailyRecord {
@@ -157,6 +157,10 @@ const AdminDashboard = ({
     ifscCode: '',
     address: ''
   });
+  const [adminAccessForm, setAdminAccessForm] = useState({
+    email: '',
+    reason: ''
+  });
 
   const todayRecords = dailyRecords.filter(r => r.date === new Date().toISOString().split('T')[0]);
   const totalRevenue = dailyRecords.filter(r => r.type === 'purchase').reduce((sum, r) => sum + r.amount, 0);
@@ -213,6 +217,16 @@ const AdminDashboard = ({
   // Only show positive dues for milkmen payments
   const milkmenWithPositiveDues = milkmen.filter(m => (m.totalDue || 0) > 0);
 
+  const handleGrantAdminAccess = () => {
+    if (adminAccessForm.email && adminAccessForm.reason) {
+      // In a real application, this would send a request to the backend
+      // For now, we'll just show a success message
+      console.log(`Admin access granted to: ${adminAccessForm.email}, Reason: ${adminAccessForm.reason}`);
+      setAdminAccessForm({ email: '', reason: '' });
+      // You would implement the actual admin access granting logic here
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
@@ -267,6 +281,10 @@ const AdminDashboard = ({
             </TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="admin-access">
+              <Shield className="w-4 h-4 mr-2" />
+              Admin Access
+            </TabsTrigger>
             <TabsTrigger value="profile">
               <Settings className="w-4 h-4 mr-2" />
               Profile
@@ -790,6 +808,90 @@ const AdminDashboard = ({
                       </div>
                     </div>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="admin-access" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Admin Access Management</CardTitle>
+                <CardDescription>Grant admin access to trusted users</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <h3 className="font-medium text-yellow-800 mb-2">⚠️ Important Notice</h3>
+                  <p className="text-sm text-yellow-700">
+                    Only grant admin access to trusted individuals. Admin users will have full control over the dairy management system.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Grant Admin Access</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label>User Email</Label>
+                      <Input
+                        value={adminAccessForm.email}
+                        onChange={(e) => setAdminAccessForm({...adminAccessForm, email: e.target.value})}
+                        placeholder="Enter user email address"
+                        type="email"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Reason for Admin Access</Label>
+                      <Input
+                        value={adminAccessForm.reason}
+                        onChange={(e) => setAdminAccessForm({...adminAccessForm, reason: e.target.value})}
+                        placeholder="e.g., Co-owner, Manager, Trusted employee"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleGrantAdminAccess}
+                    disabled={!adminAccessForm.email || !adminAccessForm.reason}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Grant Admin Access
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Current Admins</h3>
+                  <div className="space-y-2">
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">manojs030504@gmail.com</h4>
+                          <p className="text-sm text-gray-600">Primary Admin • Owner</p>
+                        </div>
+                        <Badge>Primary</Badge>
+                      </div>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">madhusudhanhk321@gmail.com</h4>
+                          <p className="text-sm text-gray-600">Secondary Admin</p>
+                        </div>
+                        <Badge variant="secondary">Admin</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h3 className="font-medium text-blue-800 mb-2">Admin Permissions Include:</h3>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Manage milk rates and pricing</li>
+                    <li>• Approve/reject milkman applications</li>
+                    <li>• Process payments to milkmen</li>
+                    <li>• Manage product inventory</li>
+                    <li>• View financial reports and user data</li>
+                    <li>• Grant admin access to other users</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>
