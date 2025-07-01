@@ -6,10 +6,9 @@ import AuthPage from '@/components/AuthPage';
 import BuyerDashboard from '@/components/BuyerDashboard';
 import MilkmanDashboard from '@/components/MilkmanDashboard';
 import AdminDashboard from '@/components/AdminDashboard';
-import HomePage from '@/components/HomePage';
 
 interface User {
-  id: string; // Changed from number to string to match Supabase UUIDs
+  id: string;
   username: string;
   email: string;
   role: string;
