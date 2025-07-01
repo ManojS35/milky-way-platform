@@ -223,7 +223,7 @@ const MilkmanDashboard = ({
 
       {showPaymentOptions && (
         <PaymentOptions
-          dueAmount={dueAmount}
+          amount={dueAmount}
           customerName={user.username}
           onPayment={handlePayment}
         />
