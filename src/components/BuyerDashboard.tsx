@@ -21,7 +21,7 @@ interface DailyRecord {
 }
 
 interface User {
-  id: number;
+  id: string; // Changed from number to string
   username: string;
   email: string;
   role: string;
@@ -40,7 +40,7 @@ interface BuyerDashboardProps {
   dailyRecords: DailyRecord[];
   dairyRates: DairyRates;
   currentDue: number;
-  onPayment: (buyerId: number, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => void;
+  onPayment: (buyerId: string, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => void; // Changed buyerId from number to string
 }
 
 const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates, currentDue, onPayment }: BuyerDashboardProps) => {
@@ -69,7 +69,7 @@ const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates, currentDue, 
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <PaymentOptions
           amount={currentDue}
-          orderId={user.id}
+          customerName={user.username}
           onPaymentComplete={handlePaymentComplete}
           onCancel={() => setShowPayment(false)}
         />

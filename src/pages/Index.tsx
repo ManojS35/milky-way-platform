@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -5,9 +6,10 @@ import AuthPage from '@/components/AuthPage';
 import BuyerDashboard from '@/components/BuyerDashboard';
 import MilkmanDashboard from '@/components/MilkmanDashboard';
 import AdminDashboard from '@/components/AdminDashboard';
+import HomePage from '@/components/HomePage';
 
 interface User {
-  id: string;
+  id: string; // Changed from number to string to match Supabase UUIDs
   username: string;
   email: string;
   role: string;

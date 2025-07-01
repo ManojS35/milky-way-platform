@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +8,7 @@ import { CreditCard, TrendingUp, Package, User, DollarSign } from 'lucide-react'
 import PaymentOptions from './PaymentOptions';
 
 interface User {
-  id: number;
+  id: string; // Changed from number to string
   username: string;
   email: string;
   role: string;
@@ -48,7 +47,7 @@ interface MilkmanDashboardProps {
   dailyRecords: DailyRecord[];
   milkmanData?: Milkman;
   onUpdateAccountDetails: (accountNumber: string, ifscCode: string) => void;
-  onMilkmanPayment: (milkmanId: number, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
+  onMilkmanPayment: (milkmanId: string, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void; // Changed milkmanId from number to string
 }
 
 const MilkmanDashboard = ({ 
@@ -226,6 +225,7 @@ const MilkmanDashboard = ({
           amount={dueAmount}
           customerName={user.username}
           onPayment={handlePayment}
+          onCancel={() => setShowPaymentOptions(false)}
         />
       )}
     </div>
