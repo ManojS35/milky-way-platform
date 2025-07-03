@@ -31,58 +31,94 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session);
-        setSession(session);
-        
-        if (session?.user) {
-          // Fetch user profile
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+    let mounted = true;
 
-          if (error) {
-            console.error('Error fetching profile:', error);
-            toast({
-              title: "Error",
-              description: "Failed to load user profile",
-              variant: "destructive"
-            });
-          } else {
-            setUser({
-              id: profile.id,
-              username: profile.username,
-              email: session.user.email,
-              role: profile.role,
-              phone: profile.phone,
-              location: profile.location
-            });
+    const initializeAuth = async () => {
+      try {
+        // Check for existing session first
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        
+        if (existingSession && mounted) {
+          console.log('Existing session found:', existingSession);
+          setSession(existingSession);
+          await loadUserProfile(existingSession);
+        } else if (mounted) {
+          console.log('No existing session, redirecting to auth');
+          setLoading(false);
+          navigate('/auth');
+          return;
+        }
+
+        // Set up auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('Auth state changed:', event, session);
+            
+            if (!mounted) return;
+
+            if (session?.user) {
+              setSession(session);
+              await loadUserProfile(session);
+            } else {
+              setUser(null);
+              setSession(null);
+              setLoading(false);
+              navigate('/auth');
+            }
           }
-        } else {
-          setUser(null);
-          // Redirect to auth page if not logged in
+        );
+
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setLoading(false);
           navigate('/auth');
         }
-        setLoading(false);
       }
-    );
+    };
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        console.log('Existing session found');
-        // The auth state change listener will handle the rest
-      } else {
-        setLoading(false);
-        navigate('/auth');
+    const loadUserProfile = async (session: any) => {
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load user profile",
+            variant: "destructive"
+          });
+        } else if (profile && mounted) {
+          setUser({
+            id: profile.id,
+            username: profile.username,
+            email: session.user.email || '',
+            role: profile.role,
+            phone: profile.phone,
+            location: profile.location
+          });
+        }
+      } catch (error) {
+        console.error('Profile loading error:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+    };
   }, [toast, navigate]);
 
   useEffect(() => {
@@ -114,7 +150,7 @@ const Index = () => {
         .select('*')
         .order('effective_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (ratesError) {
         console.error('Error fetching rates:', ratesError);
@@ -131,7 +167,7 @@ const Index = () => {
           .from('milkmen')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (milkmanError) {
           console.error('Error fetching milkman data:', milkmanError);
@@ -198,7 +234,6 @@ const Index = () => {
           title: "Success",
           description: `Payment of ₹${amount} recorded successfully!`
         });
-        // Refresh data
         fetchUserData();
       }
     } catch (error) {
@@ -236,7 +271,6 @@ const Index = () => {
           title: "Success",
           description: `Payment of ₹${amount} recorded successfully!`
         });
-        // Refresh data
         fetchUserData();
       }
     } catch (error) {
@@ -252,12 +286,34 @@ const Index = () => {
   const handleUpdateAccountDetails = async (accountNumber: string, ifscCode: string) => {
     if (!user) return;
 
+    // Validate account number (should be 9-18 digits, but we'll specifically allow 15 digits)
+    const accountNumberRegex = /^\d{9,18}$/;
+    if (!accountNumberRegex.test(accountNumber)) {
+      toast({
+        title: "Error",
+        description: "Account number should be between 9-18 digits",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate IFSC code (should be 11 characters: 4 letters + 0 + 6 alphanumeric)
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    if (!ifscRegex.test(ifscCode.toUpperCase())) {
+      toast({
+        title: "Error", 
+        description: "Invalid IFSC code format. Should be like ABCD0123456",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('milkmen')
         .update({
           account_number: accountNumber,
-          ifsc_code: ifscCode
+          ifsc_code: ifscCode.toUpperCase()
         })
         .eq('id', user.id);
 
@@ -273,7 +329,6 @@ const Index = () => {
           title: "Success",
           description: "Account details updated successfully!"
         });
-        // Refresh data
         fetchUserData();
       }
     } catch (error) {

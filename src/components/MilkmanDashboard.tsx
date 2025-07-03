@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CreditCard, TrendingUp, Package, User, DollarSign } from 'lucide-react';
 import PaymentOptions from './PaymentOptions';
+import { useToast } from '@/hooks/use-toast';
 
 interface User {
-  id: string; // Changed from number to string
+  id: string;
   username: string;
   email: string;
   role: string;
@@ -47,7 +49,7 @@ interface MilkmanDashboardProps {
   dailyRecords: DailyRecord[];
   milkmanData?: Milkman;
   onUpdateAccountDetails: (accountNumber: string, ifscCode: string) => void;
-  onMilkmanPayment: (milkmanId: string, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void; // Changed milkmanId from number to string
+  onMilkmanPayment: (milkmanId: string, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
 }
 
 const MilkmanDashboard = ({ 
@@ -63,6 +65,7 @@ const MilkmanDashboard = ({
     ifscCode: milkmanData?.ifscCode || ''
   });
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+  const { toast } = useToast();
 
   const totalSupply = dailyRecords.reduce((sum, record) => sum + record.quantity, 0);
   const totalEarnings = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
@@ -76,9 +79,45 @@ const MilkmanDashboard = ({
     { title: needsToPay ? 'Amount to Pay' : 'Amount Due', value: `₹${dueAmount}`, icon: DollarSign, change: needsToPay ? 'You owe' : 'You are owed' }
   ];
 
-  const handleUpdateAccountDetails = () => {
-    if (accountDetails.accountNumber && accountDetails.ifscCode) {
-      onUpdateAccountDetails(accountDetails.accountNumber, accountDetails.ifscCode);
+  const validateAndUpdateAccountDetails = () => {
+    const { accountNumber, ifscCode } = accountDetails;
+
+    // Validate account number (9-18 digits, specifically allowing 15 digits)
+    const accountNumberRegex = /^\d{9,18}$/;
+    if (!accountNumberRegex.test(accountNumber)) {
+      toast({
+        title: "Error",
+        description: "Account number should be between 9-18 digits (15 digits recommended)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate IFSC code
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    if (!ifscRegex.test(ifscCode.toUpperCase())) {
+      toast({
+        title: "Error",
+        description: "Invalid IFSC code format. Should be like ABCD0123456 (4 letters, then 0, then 6 alphanumeric)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    onUpdateAccountDetails(accountNumber, ifscCode.toUpperCase());
+  };
+
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+    if (value.length <= 18) {
+      setAccountDetails({...accountDetails, accountNumber: value});
+    }
+  };
+
+  const handleIfscChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); // Only allow letters and numbers
+    if (value.length <= 11) {
+      setAccountDetails({...accountDetails, ifscCode: value});
     }
   };
 
@@ -122,28 +161,36 @@ const MilkmanDashboard = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Account Details</CardTitle>
+              <CardTitle>Bank Account Details</CardTitle>
               <CardDescription>Update your bank account information for payments</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Account Number</Label>
+                <Label>Account Number (9-18 digits, 15 digits recommended)</Label>
                 <Input
                   value={accountDetails.accountNumber}
-                  onChange={(e) => setAccountDetails({...accountDetails, accountNumber: e.target.value})}
-                  placeholder="Enter your bank account number"
+                  onChange={handleAccountNumberChange}
+                  placeholder="Enter 15-digit account number"
+                  maxLength={18}
                 />
+                <p className="text-xs text-gray-500">
+                  Current length: {accountDetails.accountNumber.length} digits
+                </p>
               </div>
               <div className="space-y-2">
-                <Label>IFSC Code</Label>
+                <Label>IFSC Code (11 characters: ABCD0123456)</Label>
                 <Input
                   value={accountDetails.ifscCode}
-                  onChange={(e) => setAccountDetails({...accountDetails, ifscCode: e.target.value})}
-                  placeholder="Enter IFSC code"
+                  onChange={handleIfscChange}
+                  placeholder="ABCD0123456"
+                  maxLength={11}
                 />
+                <p className="text-xs text-gray-500">
+                  Format: 4 letters + 0 + 6 alphanumeric characters
+                </p>
               </div>
               <Button 
-                onClick={handleUpdateAccountDetails}
+                onClick={validateAndUpdateAccountDetails}
                 disabled={!accountDetails.accountNumber || !accountDetails.ifscCode}
               >
                 Update Account Details

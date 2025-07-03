@@ -35,9 +35,14 @@ const AuthPage = () => {
   useEffect(() => {
     // Check if user is already logged in
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate('/dashboard');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('User already logged in, redirecting to dashboard');
+          navigate('/dashboard');
+        }
+      } catch (error) {
+        console.error('Error checking auth session:', error);
       }
     };
     checkUser();
@@ -56,25 +61,30 @@ const AuthPage = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting to login with:', loginData.email);
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: loginData.email,
         password: loginData.password
       });
 
       if (error) {
+        console.error('Login error:', error);
         toast({
           title: "Login Failed",
           description: error.message,
           variant: "destructive"
         });
-      } else {
+      } else if (data.user) {
+        console.log('Login successful:', data.user);
         toast({
           title: "Success",
           description: "Logged in successfully!"
         });
+        // Navigate will be handled by the auth state change in Index.tsx
         navigate('/dashboard');
       }
     } catch (error) {
+      console.error('Login exception:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred",
@@ -117,7 +127,8 @@ const AuthPage = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      console.log('Attempting to signup with:', signupData.email, signupData.role);
+      const { data, error } = await supabase.auth.signUp({
         email: signupData.email,
         password: signupData.password,
         options: {
@@ -132,12 +143,14 @@ const AuthPage = () => {
       });
 
       if (error) {
+        console.error('Signup error:', error);
         toast({
           title: "Signup Failed",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log('Signup successful:', data);
         toast({
           title: "Success",
           description: "Account created successfully! Please check your email to verify your account."
@@ -145,6 +158,7 @@ const AuthPage = () => {
         setActiveTab('login');
       }
     } catch (error) {
+      console.error('Signup exception:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred",
