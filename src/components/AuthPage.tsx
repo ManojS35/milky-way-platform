@@ -9,15 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-interface AuthPageProps {
-  onAuthSuccess: () => void;
-}
-
-const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
+const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [loginData, setLoginData] = useState({
     email: '',
@@ -39,11 +37,11 @@ const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        onAuthSuccess();
+        navigate('/dashboard');
       }
     };
     checkUser();
-  }, [onAuthSuccess]);
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +72,7 @@ const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
           title: "Success",
           description: "Logged in successfully!"
         });
-        onAuthSuccess();
+        navigate('/dashboard');
       }
     } catch (error) {
       toast({
@@ -123,7 +121,7 @@ const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
         email: signupData.email,
         password: signupData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             username: signupData.username,
             phone: signupData.phone,

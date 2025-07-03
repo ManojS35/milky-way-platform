@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import AuthPage from '@/components/AuthPage';
+import { useNavigate } from 'react-router-dom';
 import BuyerDashboard from '@/components/BuyerDashboard';
 import MilkmanDashboard from '@/components/MilkmanDashboard';
 import AdminDashboard from '@/components/AdminDashboard';
@@ -29,6 +28,7 @@ const Index = () => {
   const [dairyRates, setDairyRates] = useState({ milkmanRate: 55, buyerRate: 70 });
   const [currentDue, setCurrentDue] = useState(0);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Set up auth state listener
@@ -64,6 +64,8 @@ const Index = () => {
           }
         } else {
           setUser(null);
+          // Redirect to auth page if not logged in
+          navigate('/auth');
         }
         setLoading(false);
       }
@@ -76,11 +78,12 @@ const Index = () => {
         // The auth state change listener will handle the rest
       } else {
         setLoading(false);
+        navigate('/auth');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [toast]);
+  }, [toast, navigate]);
 
   useEffect(() => {
     if (user) {
@@ -165,6 +168,8 @@ const Index = () => {
         description: "Failed to logout",
         variant: "destructive"
       });
+    } else {
+      navigate('/');
     }
   };
 
@@ -293,7 +298,7 @@ const Index = () => {
   }
 
   if (!session || !user) {
-    return <AuthPage onAuthSuccess={() => {}} />;
+    return null; // Will redirect to auth page
   }
 
   // Render appropriate dashboard based on user role
