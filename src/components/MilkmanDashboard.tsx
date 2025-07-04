@@ -83,8 +83,12 @@ const MilkmanDashboard = ({
     }
   };
 
-  const handlePayment = (amount: number, method: string, transactionId: string) => {
-    onMilkmanPayment(user.id, user.username, amount, method, transactionId);
+  const handlePaymentComplete = (paymentMethod: string, transactionId: string) => {
+    onMilkmanPayment(user.id, user.username, dueAmount, paymentMethod, transactionId);
+    setShowPaymentOptions(false);
+  };
+
+  const handlePaymentCancel = () => {
     setShowPaymentOptions(false);
   };
 
@@ -223,9 +227,10 @@ const MilkmanDashboard = ({
 
       {showPaymentOptions && (
         <PaymentOptions
-          dueAmount={dueAmount}
-          customerName={user.username}
-          onPayment={handlePayment}
+          amount={dueAmount}
+          orderId={user.id}
+          onPaymentComplete={handlePaymentComplete}
+          onCancel={handlePaymentCancel}
         />
       )}
     </div>
