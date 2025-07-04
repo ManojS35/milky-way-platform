@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import PaymentOptions from './PaymentOptions';
 
 interface DailyRecord {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName: string;
   userRole: 'buyer' | 'milkman';
   date: string;
@@ -21,7 +21,7 @@ interface DailyRecord {
 }
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: string;
@@ -29,27 +29,23 @@ interface User {
   location?: string;
 }
 
-interface DairyRates {
-  milkmanRate: number;
-  buyerRate: number;
-}
-
 interface BuyerDashboardProps {
   user: User;
   onLogout: () => void;
-  dailyRecords: DailyRecord[];
-  dairyRates: DairyRates;
-  currentDue: number;
-  onPayment: (buyerId: number, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => void;
 }
 
-const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates, currentDue, onPayment }: BuyerDashboardProps) => {
+const BuyerDashboard = ({ user, onLogout }: BuyerDashboardProps) => {
   const [activeTab, setActiveTab] = useState('records');
   const [showPayment, setShowPayment] = useState(false);
   const [profileData, setProfileData] = useState({
     phone: user.phone || '',
     location: user.location || ''
   });
+
+  // Mock data - replace with actual data from Supabase
+  const dailyRecords: DailyRecord[] = [];
+  const currentDue = 0;
+  const dairyRates = { buyerRate: 70 };
 
   const totalPurchases = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
   const thisMonthRecords = dailyRecords.filter(record => {
@@ -60,7 +56,7 @@ const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates, currentDue, 
   });
 
   const handlePaymentComplete = (paymentMethod: string, transactionId: string) => {
-    onPayment(user.id, user.username, currentDue, paymentMethod, transactionId);
+    console.log('Payment completed:', { paymentMethod, transactionId, amount: currentDue });
     setShowPayment(false);
   };
 
@@ -69,7 +65,7 @@ const BuyerDashboard = ({ user, onLogout, dailyRecords, dairyRates, currentDue, 
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <PaymentOptions
           amount={currentDue}
-          orderId={user.id}
+          orderId={parseInt(user.id.slice(-6), 16)} // Convert part of UUID to number
           onPaymentComplete={handlePaymentComplete}
           onCancel={() => setShowPayment(false)}
         />
