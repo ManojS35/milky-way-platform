@@ -125,23 +125,66 @@ const Index = () => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (error) {
-            console.error('Error fetching profile:', error);
-            toast({
-              title: "Profile Error",
-              description: "Could not fetch user profile. Please try logging in again.",
-              variant: "destructive"
-            });
-          } else {
-            setProfile(profileData);
-          }
+          // Use setTimeout to avoid blocking the auth callback
+          setTimeout(async () => {
+            try {
+              // Fetch user profile
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (error) {
+                console.error('Error fetching profile:', error);
+                
+                // If profile doesn't exist, create one
+                if (error.code === 'PGRST116') {
+                  const { error: insertError } = await supabase
+                    .from('profiles')
+                    .insert({
+                      id: session.user.id,
+                      username: session.user.email?.split('@')[0] || 'user',
+                      email: session.user.email || '',
+                      role: 'buyer'
+                    });
+
+                  if (insertError) {
+                    console.error('Error creating profile:', insertError);
+                    toast({
+                      title: "Profile Error",
+                      description: "Could not create user profile. Please try logging in again.",
+                      variant: "destructive"
+                    });
+                  } else {
+                    // Fetch the newly created profile
+                    const { data: newProfile } = await supabase
+                      .from('profiles')
+                      .select('*')
+                      .eq('id', session.user.id)
+                      .single();
+                    
+                    setProfile(newProfile);
+                  }
+                } else {
+                  toast({
+                    title: "Profile Error",
+                    description: "Could not fetch user profile. Please try logging in again.",
+                    variant: "destructive"
+                  });
+                }
+              } else {
+                setProfile(profileData);
+              }
+            } catch (err) {
+              console.error('Profile fetch error:', err);
+              toast({
+                title: "Profile Error",
+                description: "An error occurred while fetching your profile.",
+                variant: "destructive"
+              });
+            }
+          }, 0);
         } else {
           setProfile(null);
         }
@@ -150,16 +193,17 @@ const Index = () => {
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setLoading(false);
       }
-    });
+    };
+
+    initAuth();
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [toast]);
 
   // Load data when user is authenticated
   useEffect(() => {
