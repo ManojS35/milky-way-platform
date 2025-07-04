@@ -9,12 +9,13 @@ import { CreditCard, Smartphone, Building2 } from 'lucide-react';
 
 interface PaymentOptionsProps {
   amount: number;
-  orderId: number;
+  orderId?: number;
+  customerName?: string;
   onPaymentComplete: (paymentMethod: string, transactionId: string) => void;
   onCancel: () => void;
 }
 
-const PaymentOptions = ({ amount, orderId, onPaymentComplete, onCancel }: PaymentOptionsProps) => {
+const PaymentOptions = ({ amount, orderId, customerName, onPaymentComplete, onCancel }: PaymentOptionsProps) => {
   const [activeTab, setActiveTab] = useState('upi');
   const [upiId, setUpiId] = useState('');
   const [cardDetails, setCardDetails] = useState({
@@ -52,7 +53,10 @@ const PaymentOptions = ({ amount, orderId, onPaymentComplete, onCancel }: Paymen
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Payment for Order #{orderId}</CardTitle>
+        <CardTitle>
+          Payment {orderId ? `for Order #${orderId}` : ''}
+          {customerName && <div className="text-sm font-normal text-gray-600">Customer: {customerName}</div>}
+        </CardTitle>
         <CardDescription>
           Total Amount: <span className="font-bold text-green-600">₹{amount}</span>
         </CardDescription>
