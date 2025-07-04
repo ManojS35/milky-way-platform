@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -54,35 +53,6 @@ const AuthPage = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Check if profile exists, create if not
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError && profileError.code === 'PGRST116') {
-          // Profile doesn't exist, create one
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              username: data.user.email?.split('@')[0] || 'user',
-              email: data.user.email || '',
-              role: 'buyer'
-            });
-
-          if (insertError) {
-            console.error('Error creating profile:', insertError);
-            toast({
-              title: "Profile Creation Error",
-              description: "Could not create user profile. Please contact support.",
-              variant: "destructive"
-            });
-            return;
-          }
-        }
-
         toast({
           title: "Login Successful",
           description: "Welcome back!",
@@ -90,10 +60,9 @@ const AuthPage = () => {
         navigate('/dashboard');
       }
     } catch (error: any) {
-      console.error('Login error:', error);
       toast({
         title: "Login Failed",
-        description: error.message || "An error occurred during login",
+        description: error.message,
         variant: "destructive"
       });
     } finally {
@@ -142,58 +111,16 @@ const AuthPage = () => {
       if (error) throw error;
 
       if (data.user) {
-        // If user is immediately confirmed (email confirmation disabled), create profile
-        if (data.user.email_confirmed_at) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              username: signupForm.username,
-              email: signupForm.email,
-              phone: signupForm.phone,
-              location: signupForm.location,
-              role: signupForm.role
-            });
-
-          if (profileError) {
-            console.error('Error creating profile:', profileError);
-          }
-
-          // If milkman, create milkmen record
-          if (signupForm.role === 'milkman') {
-            const { error: milkmanError } = await supabase
-              .from('milkmen')
-              .insert({
-                id: data.user.id,
-                name: signupForm.username,
-                username: signupForm.username,
-                location: signupForm.location || 'Unknown',
-                phone: signupForm.phone || ''
-              });
-
-            if (milkmanError) {
-              console.error('Error creating milkman record:', milkmanError);
-            }
-          }
-
-          toast({
-            title: "Account Created",
-            description: "Welcome to DairyConnect!",
-          });
-          navigate('/dashboard');
-        } else {
-          toast({
-            title: "Signup Successful",
-            description: "Please check your email to verify your account.",
-          });
-          setIsLogin(true);
-        }
+        toast({
+          title: "Signup Successful",
+          description: "Please check your email to verify your account.",
+        });
+        setIsLogin(true);
       }
     } catch (error: any) {
-      console.error('Signup error:', error);
       toast({
         title: "Signup Failed",
-        description: error.message || "An error occurred during signup",
+        description: error.message,
         variant: "destructive"
       });
     } finally {
