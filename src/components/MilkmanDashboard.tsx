@@ -9,15 +9,15 @@ import { CreditCard, TrendingUp, Package, User, DollarSign } from 'lucide-react'
 import PaymentOptions from './PaymentOptions';
 
 interface User {
-  id: string;
+  id: number;
   username: string;
   email: string;
   role: string;
 }
 
 interface DailyRecord {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   userName: string;
   userRole: 'buyer' | 'milkman';
   date: string;
@@ -28,7 +28,7 @@ interface DailyRecord {
 }
 
 interface Milkman {
-  id: string;
+  id: number;
   name: string;
   username: string;
   location: string;
@@ -45,28 +45,25 @@ interface Milkman {
 interface MilkmanDashboardProps {
   user: User;
   onLogout: () => void;
+  dailyRecords: DailyRecord[];
+  milkmanData?: Milkman;
+  onUpdateAccountDetails: (accountNumber: string, ifscCode: string) => void;
+  onMilkmanPayment: (milkmanId: number, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
 }
 
-const MilkmanDashboard = ({ user, onLogout }: MilkmanDashboardProps) => {
+const MilkmanDashboard = ({ 
+  user, 
+  onLogout, 
+  dailyRecords, 
+  milkmanData,
+  onUpdateAccountDetails,
+  onMilkmanPayment
+}: MilkmanDashboardProps) => {
   const [accountDetails, setAccountDetails] = useState({
-    accountNumber: '',
-    ifscCode: ''
+    accountNumber: milkmanData?.accountNumber || '',
+    ifscCode: milkmanData?.ifscCode || ''
   });
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
-
-  // Mock data - replace with actual data from Supabase
-  const dailyRecords: DailyRecord[] = [];
-  const milkmanData: Milkman = {
-    id: user.id,
-    name: user.username,
-    username: user.username,
-    location: 'Unknown',
-    status: 'approved',
-    phone: '',
-    rating: 0,
-    available: true,
-    totalDue: 0
-  };
 
   const totalSupply = dailyRecords.reduce((sum, record) => sum + record.quantity, 0);
   const totalEarnings = dailyRecords.reduce((sum, record) => sum + record.amount, 0);
@@ -82,14 +79,12 @@ const MilkmanDashboard = ({ user, onLogout }: MilkmanDashboardProps) => {
 
   const handleUpdateAccountDetails = () => {
     if (accountDetails.accountNumber && accountDetails.ifscCode) {
-      // Update account details in Supabase
-      console.log('Updating account details:', accountDetails);
+      onUpdateAccountDetails(accountDetails.accountNumber, accountDetails.ifscCode);
     }
   };
 
-  const handlePayment = (paymentMethod: string, transactionId: string) => {
-    // Handle payment logic
-    console.log('Payment completed:', { paymentMethod, transactionId, amount: dueAmount });
+  const handlePayment = (amount: number, method: string, transactionId: string) => {
+    onMilkmanPayment(user.id, user.username, amount, method, transactionId);
     setShowPaymentOptions(false);
   };
 
@@ -228,10 +223,9 @@ const MilkmanDashboard = ({ user, onLogout }: MilkmanDashboardProps) => {
 
       {showPaymentOptions && (
         <PaymentOptions
-          amount={dueAmount}
-          orderId={parseInt(user.id.slice(-6), 16)} // Convert part of UUID to number
-          onPaymentComplete={handlePayment}
-          onCancel={() => setShowPaymentOptions(false)}
+          dueAmount={dueAmount}
+          customerName={user.username}
+          onPayment={handlePayment}
         />
       )}
     </div>
