@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,15 +9,15 @@ import { CreditCard, TrendingUp, Package, User, DollarSign } from 'lucide-react'
 import PaymentOptions from './PaymentOptions';
 
 interface User {
-  id: string;
+  id: number;
   username: string;
-  email?: string;
+  email: string;
   role: string;
 }
 
 interface DailyRecord {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   userName: string;
   userRole: 'buyer' | 'milkman';
   date: string;
@@ -27,7 +28,7 @@ interface DailyRecord {
 }
 
 interface Milkman {
-  id: string;
+  id: number;
   name: string;
   username: string;
   location: string;
@@ -47,7 +48,7 @@ interface MilkmanDashboardProps {
   dailyRecords: DailyRecord[];
   milkmanData?: Milkman;
   onUpdateAccountDetails: (accountNumber: string, ifscCode: string) => void;
-  onMilkmanPayment: (milkmanId: string, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
+  onMilkmanPayment: (milkmanId: number, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
 }
 
 const MilkmanDashboard = ({ 
@@ -82,8 +83,8 @@ const MilkmanDashboard = ({
     }
   };
 
-  const handlePayment = (paymentMethod: string, transactionId: string) => {
-    onMilkmanPayment(user.id, user.username, dueAmount, paymentMethod, transactionId);
+  const handlePayment = (amount: number, method: string, transactionId: string) => {
+    onMilkmanPayment(user.id, user.username, amount, method, transactionId);
     setShowPaymentOptions(false);
   };
 
@@ -222,10 +223,9 @@ const MilkmanDashboard = ({
 
       {showPaymentOptions && (
         <PaymentOptions
-          amount={dueAmount}
+          dueAmount={dueAmount}
           customerName={user.username}
-          onPaymentComplete={handlePayment}
-          onCancel={() => setShowPaymentOptions(false)}
+          onPayment={handlePayment}
         />
       )}
     </div>

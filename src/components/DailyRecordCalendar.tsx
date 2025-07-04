@@ -11,8 +11,8 @@ import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 
 interface DailyRecord {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   userName: string;
   userRole: 'buyer' | 'milkman';
   date: string;
@@ -23,7 +23,7 @@ interface DailyRecord {
 }
 
 interface User {
-  id: string;
+  id: number;
   username: string;
   role: string;
 }
@@ -33,7 +33,7 @@ interface DailyRecordCalendarProps {
   users: User[];
   milkmanRate: number;
   buyerRate: number;
-  onAddRecord: (userId: string, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => void;
+  onAddRecord: (userId: number, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => void;
 }
 
 const DailyRecordCalendar = ({ dailyRecords, users, milkmanRate, buyerRate, onAddRecord }: DailyRecordCalendarProps) => {
