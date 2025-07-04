@@ -110,6 +110,11 @@ const Index = () => {
     transactionId: string;
     date: string;
   }>>([]);
+  const [users, setUsers] = useState<Array<{
+    id: string;
+    username: string;
+    role: string;
+  }>>([]);
 
   // Authentication effect
   useEffect(() => {
@@ -191,8 +196,16 @@ const Index = () => {
         })));
       }
 
-      // Load milkmen if admin
+      // Load users (profiles) if admin
       if (profile?.role === 'admin') {
+        const { data: usersData } = await supabase
+          .from('profiles')
+          .select('id, username, role');
+        
+        if (usersData) {
+          setUsers(usersData);
+        }
+
         const { data: milkmenData } = await supabase
           .from('milkmen')
           .select('*');
@@ -235,6 +248,24 @@ const Index = () => {
         })));
       }
 
+      // Load payments
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (paymentsData) {
+        setPayments(paymentsData.map(p => ({
+          id: p.id,
+          buyerId: p.buyer_id,
+          buyerName: p.buyer_name,
+          amount: p.amount,
+          paymentMethod: p.payment_method,
+          transactionId: p.transaction_id,
+          date: p.date
+        })));
+      }
+
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -267,20 +298,147 @@ const Index = () => {
     return null;
   }
 
-  // Placeholder functions for dashboard operations
+  // Implement daily record functionality
   const handleAddDailyRecord = async (userId: string, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => {
-    // Implementation will be added later
-    toast({ title: "Feature Coming Soon", description: "Daily record functionality will be implemented." });
+    try {
+      const rate = userRole === 'buyer' ? dairyRates.buyerRate : dairyRates.milkmanRate;
+      const amount = quantity * rate;
+
+      const { data, error } = await supabase
+        .from('daily_records')
+        .insert({
+          user_id: userId,
+          user_name: userName,
+          user_role: userRole,
+          date,
+          quantity,
+          rate,
+          amount,
+          type
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      setDailyRecords(prev => [
+        {
+          id: data.id,
+          userId: data.user_id,
+          userName: data.user_name,
+          userRole: data.user_role,
+          date: data.date,
+          quantity: data.quantity,
+          rate: data.rate,
+          amount: data.amount,
+          type: data.type
+        },
+        ...prev
+      ]);
+
+      toast({
+        title: "Success",
+        description: "Daily record added successfully",
+      });
+    } catch (error: any) {
+      console.error('Error adding daily record:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add daily record",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleBuyerPayment = (buyerId: string, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => {
-    // Implementation will be added later
-    toast({ title: "Feature Coming Soon", description: "Payment functionality will be implemented." });
+  const handleBuyerPayment = async (buyerId: string, buyerName: string, amount: number, paymentMethod: string, transactionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert({
+          buyer_id: buyerId,
+          buyer_name: buyerName,
+          amount,
+          payment_method: paymentMethod,
+          transaction_id: transactionId,
+          date: new Date().toISOString().split('T')[0]
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      setPayments(prev => [
+        {
+          id: data.id,
+          buyerId: data.buyer_id,
+          buyerName: data.buyer_name,
+          amount: data.amount,
+          paymentMethod: data.payment_method,
+          transactionId: data.transaction_id,
+          date: data.date
+        },
+        ...prev
+      ]);
+
+      toast({
+        title: "Success",
+        description: "Payment recorded successfully",
+      });
+    } catch (error: any) {
+      console.error('Error recording payment:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to record payment",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleMilkmanPayment = (milkmanId: string, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => {
-    // Implementation will be added later
-    toast({ title: "Feature Coming Soon", description: "Milkman payment functionality will be implemented." });
+  const handleMilkmanPayment = async (milkmanId: string, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('milkman_payments')
+        .insert({
+          milkman_id: milkmanId,
+          milkman_name: milkmanName,
+          amount,
+          payment_method: paymentMethod,
+          transaction_id: transactionId,
+          date: new Date().toISOString().split('T')[0]
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      setMilkmanPayments(prev => [
+        {
+          id: data.id,
+          milkmanId: data.milkman_id,
+          milkmanName: data.milkman_name,
+          amount: data.amount,
+          paymentMethod: data.payment_method,
+          transactionId: data.transaction_id,
+          date: data.date
+        },
+        ...prev
+      ]);
+
+      toast({
+        title: "Success",
+        description: "Milkman payment recorded successfully",
+      });
+    } catch (error: any) {
+      console.error('Error recording milkman payment:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to record milkman payment",
+        variant: "destructive"
+      });
+    }
   };
 
   // Create AppUser objects for dashboard components
@@ -291,6 +449,29 @@ const Index = () => {
     email: user.email
   });
 
+  // Calculate buyer dues
+  const calculateBuyerDues = () => {
+    const dues: { [buyerId: string]: number } = {};
+    
+    dailyRecords.forEach(record => {
+      if (record.type === 'purchase') {
+        if (!dues[record.userId]) {
+          dues[record.userId] = 0;
+        }
+        dues[record.userId] += record.amount;
+      }
+    });
+
+    // Subtract payments
+    payments.forEach(payment => {
+      if (dues[payment.buyerId]) {
+        dues[payment.buyerId] -= payment.amount;
+      }
+    });
+
+    return dues;
+  };
+
   // Render appropriate dashboard based on user role
   switch (profile.role) {
     case 'admin':
@@ -298,11 +479,11 @@ const Index = () => {
         user={createAppUser(user, profile)}
         onLogout={handleLogout} 
         milkmen={milkmen}
-        users={[]} // Will be populated later
+        users={users}
         dailyRecords={dailyRecords}
         dairyRates={dairyRates}
         payments={payments}
-        buyerDues={{}} // Will be calculated later
+        buyerDues={calculateBuyerDues()}
         products={products}
         productSales={productSales}
         onApproveMilkman={() => {}}
@@ -316,12 +497,14 @@ const Index = () => {
         onSellProduct={() => {}}
       />;
     case 'buyer':
+      const buyerDues = calculateBuyerDues();
+      const currentDue = buyerDues[user.id] || 0;
       return <BuyerDashboard 
         user={createAppUser(user, profile)}
         onLogout={handleLogout} 
         dailyRecords={dailyRecords.filter(r => r.userId === user.id)}
         dairyRates={dairyRates}
-        currentDue={0} // Will be calculated later
+        currentDue={currentDue}
         onPayment={handleBuyerPayment}
       />;
     case 'milkman':
