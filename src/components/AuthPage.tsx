@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,7 @@ const AuthPage = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate('/');
+        navigate('/dashboard');
       }
     };
     checkUser();
@@ -58,7 +57,7 @@ const AuthPage = () => {
           title: "Login Successful",
           description: "Welcome back!",
         });
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (error: any) {
       toast({
@@ -99,7 +98,7 @@ const AuthPage = () => {
         email: signupForm.email,
         password: signupForm.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             username: signupForm.username,
             role: signupForm.role,
