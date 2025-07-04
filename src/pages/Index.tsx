@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -67,6 +68,13 @@ interface ProductSale {
   rate: number;
   amount: number;
   date: string;
+}
+
+interface AppUser {
+  id: string;
+  role: string;
+  username: string;
+  email?: string;
 }
 
 const Index = () => {
@@ -275,11 +283,19 @@ const Index = () => {
     toast({ title: "Feature Coming Soon", description: "Milkman payment functionality will be implemented." });
   };
 
+  // Create AppUser objects for dashboard components
+  const createAppUser = (user: User, profile: Profile): AppUser => ({
+    id: user.id,
+    role: profile.role,
+    username: profile.username,
+    email: user.email
+  });
+
   // Render appropriate dashboard based on user role
   switch (profile.role) {
     case 'admin':
       return <AdminDashboard 
-        user={{ ...user, role: 'admin', username: profile.username }}
+        user={createAppUser(user, profile)}
         onLogout={handleLogout} 
         milkmen={milkmen}
         users={[]} // Will be populated later
@@ -301,7 +317,7 @@ const Index = () => {
       />;
     case 'buyer':
       return <BuyerDashboard 
-        user={{ ...user, role: 'buyer', username: profile.username }}
+        user={createAppUser(user, profile)}
         onLogout={handleLogout} 
         dailyRecords={dailyRecords.filter(r => r.userId === user.id)}
         dairyRates={dairyRates}
@@ -311,7 +327,7 @@ const Index = () => {
     case 'milkman':
       const milkmanData = milkmen.find(m => m.id === user.id);
       return <MilkmanDashboard 
-        user={{ ...user, role: 'milkman', username: profile.username }}
+        user={createAppUser(user, profile)}
         onLogout={handleLogout} 
         dailyRecords={dailyRecords.filter(r => r.userId === user.id)}
         milkmanData={milkmanData}

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,15 +8,15 @@ import { CreditCard, TrendingUp, Package, User, DollarSign } from 'lucide-react'
 import PaymentOptions from './PaymentOptions';
 
 interface User {
-  id: number;
+  id: string;
   username: string;
-  email: string;
+  email?: string;
   role: string;
 }
 
 interface DailyRecord {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName: string;
   userRole: 'buyer' | 'milkman';
   date: string;
@@ -28,7 +27,7 @@ interface DailyRecord {
 }
 
 interface Milkman {
-  id: number;
+  id: string;
   name: string;
   username: string;
   location: string;
@@ -48,7 +47,7 @@ interface MilkmanDashboardProps {
   dailyRecords: DailyRecord[];
   milkmanData?: Milkman;
   onUpdateAccountDetails: (accountNumber: string, ifscCode: string) => void;
-  onMilkmanPayment: (milkmanId: number, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
+  onMilkmanPayment: (milkmanId: string, milkmanName: string, amount: number, paymentMethod: string, transactionId: string) => void;
 }
 
 const MilkmanDashboard = ({ 
@@ -83,8 +82,8 @@ const MilkmanDashboard = ({
     }
   };
 
-  const handlePayment = (amount: number, method: string, transactionId: string) => {
-    onMilkmanPayment(user.id, user.username, amount, method, transactionId);
+  const handlePayment = (paymentMethod: string, transactionId: string) => {
+    onMilkmanPayment(user.id, user.username, dueAmount, paymentMethod, transactionId);
     setShowPaymentOptions(false);
   };
 
@@ -223,9 +222,10 @@ const MilkmanDashboard = ({
 
       {showPaymentOptions && (
         <PaymentOptions
-          dueAmount={dueAmount}
+          amount={dueAmount}
           customerName={user.username}
-          onPayment={handlePayment}
+          onPaymentComplete={handlePayment}
+          onCancel={() => setShowPaymentOptions(false)}
         />
       )}
     </div>
