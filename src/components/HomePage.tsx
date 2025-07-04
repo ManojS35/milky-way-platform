@@ -17,7 +17,7 @@ interface UserProfile {
 }
 
 interface Milkman {
-  id: number;
+  id: string;
   name: string;
   username: string;
   location: string;
@@ -32,8 +32,8 @@ interface Milkman {
 }
 
 interface DailyRecord {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName: string;
   userRole: 'buyer' | 'milkman';
   date: string;
@@ -49,7 +49,7 @@ interface DairyRates {
 }
 
 interface Product {
-  id: number;
+  id: string;
   name: string;
   category: 'feed' | 'dairy_product';
   price: number;
@@ -70,8 +70,8 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
   const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([]);
   const [dairyRates, setDairyRates] = useState<DairyRates>({ milkmanRate: 55, buyerRate: 70 });
   const [payments, setPayments] = useState<Array<{
-    id: number;
-    buyerId: number;
+    id: string;
+    buyerId: string;
     buyerName: string;
     amount: number;
     paymentMethod: string;
@@ -80,10 +80,10 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
   }>>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productSales, setProductSales] = useState<Array<{
-    id: number;
-    productId: number;
+    id: string;
+    productId: string;
     productName: string;
-    buyerId: number;
+    buyerId: string;
     buyerName: string;
     buyerRole: 'buyer' | 'milkman';
     quantity: number;
@@ -154,7 +154,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
 
       if (milkmenData.data) {
         setMilkmen(milkmenData.data.map(m => ({
-          id: parseInt(m.id),
+          id: m.id,
           name: m.name,
           username: m.username,
           location: m.location,
@@ -182,8 +182,8 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
 
       if (dailyRecordsData.data) {
         setDailyRecords(dailyRecordsData.data.map(r => ({
-          id: parseInt(r.id),
-          userId: parseInt(r.user_id),
+          id: r.id,
+          userId: r.user_id,
           userName: r.user_name,
           userRole: r.user_role as 'buyer' | 'milkman',
           date: r.date,
@@ -204,8 +204,8 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
 
       if (paymentsData.data) {
         setPayments(paymentsData.data.map(p => ({
-          id: parseInt(p.id),
-          buyerId: parseInt(p.buyer_id),
+          id: p.id,
+          buyerId: p.buyer_id,
           buyerName: p.buyer_name,
           amount: p.amount,
           paymentMethod: p.payment_method,
@@ -216,7 +216,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
 
       if (productsData.data) {
         setProducts(productsData.data.map(p => ({
-          id: parseInt(p.id),
+          id: p.id,
           name: p.name,
           category: p.category as 'feed' | 'dairy_product',
           price: p.price,
@@ -226,10 +226,10 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
 
       if (productSalesData.data) {
         setProductSales(productSalesData.data.map(s => ({
-          id: parseInt(s.id),
-          productId: parseInt(s.product_id),
+          id: s.id,
+          productId: s.product_id,
           productName: s.product_name,
-          buyerId: parseInt(s.buyer_id),
+          buyerId: s.buyer_id,
           buyerName: s.buyer_name,
           buyerRole: s.buyer_role as 'buyer' | 'milkman',
           quantity: s.quantity,
@@ -262,12 +262,12 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
   };
 
   // Handler functions for admin operations
-  const handleApproveMilkman = async (milkmanId: number) => {
+  const handleApproveMilkman = async (milkmanId: string) => {
     try {
       const { error } = await supabase
         .from('milkmen')
         .update({ status: 'approved' })
-        .eq('id', milkmanId.toString());
+        .eq('id', milkmanId);
 
       if (error) throw error;
       
@@ -288,12 +288,12 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
     }
   };
 
-  const handleRejectMilkman = async (milkmanId: number) => {
+  const handleRejectMilkman = async (milkmanId: string) => {
     try {
       const { error } = await supabase
         .from('milkmen')
         .update({ status: 'rejected' })
-        .eq('id', milkmanId.toString());
+        .eq('id', milkmanId);
 
       if (error) throw error;
       
@@ -338,7 +338,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
     }
   };
 
-  const handlePayMilkman = async (milkmanId: number, amount: number) => {
+  const handlePayMilkman = async (milkmanId: string, amount: number) => {
     try {
       const milkman = milkmen.find(m => m.id === milkmanId);
       if (!milkman) return;
@@ -346,7 +346,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
       const { error } = await supabase
         .from('milkman_payments')
         .insert({
-          milkman_id: milkmanId.toString(),
+          milkman_id: milkmanId,
           milkman_name: milkman.name,
           amount,
           payment_method: 'Bank Transfer',
@@ -360,7 +360,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
       await supabase
         .from('milkmen')
         .update({ total_due: (milkman.totalDue || 0) - amount })
-        .eq('id', milkmanId.toString());
+        .eq('id', milkmanId);
       
       setMilkmen(prev => prev.map(m => 
         m.id === milkmanId ? { ...m, totalDue: (m.totalDue || 0) - amount } : m
@@ -380,7 +380,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
   };
 
   const handleAddDailyRecord = async (
-    userId: number, 
+    userId: string, 
     userName: string, 
     userRole: 'buyer' | 'milkman', 
     date: string, 
@@ -394,7 +394,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
       const { error } = await supabase
         .from('daily_records')
         .insert({
-          user_id: userId.toString(),
+          user_id: userId,
           user_name: userName,
           user_role: userRole,
           date,
@@ -445,12 +445,12 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
     }
   };
 
-  const handleUpdateProduct = async (id: number, name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => {
+  const handleUpdateProduct = async (id: string, name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => {
     try {
       const { error } = await supabase
         .from('products')
         .update({ name, category, price, unit })
-        .eq('id', id.toString());
+        .eq('id', id);
 
       if (error) throw error;
       
@@ -469,12 +469,12 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
     }
   };
 
-  const handleDeleteProduct = async (id: number) => {
+  const handleDeleteProduct = async (id: string) => {
     try {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', id.toString());
+        .eq('id', id);
 
       if (error) throw error;
       
@@ -494,8 +494,8 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
   };
 
   const handleSellProduct = async (
-    productId: number, 
-    buyerId: number, 
+    productId: string, 
+    buyerId: string, 
     buyerName: string, 
     buyerRole: 'buyer' | 'milkman', 
     quantity: number
@@ -509,9 +509,9 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
       const { error } = await supabase
         .from('product_sales')
         .insert({
-          product_id: productId.toString(),
+          product_id: productId,
           product_name: product.name,
-          buyer_id: buyerId.toString(),
+          buyer_id: buyerId,
           buyer_name: buyerName,
           buyer_role: buyerRole,
           quantity,
@@ -562,7 +562,7 @@ const HomePage = ({ user, onLogout }: HomePageProps) => {
   }
 
   // Calculate buyer dues
-  const buyerDues: { [key: string]: { userId: number; userName: string; totalPurchases: number; totalPayments: number; due: number } } = {};
+  const buyerDues: { [key: string]: { userId: string; userName: string; totalPurchases: number; totalPayments: number; due: number } } = {};
   
   dailyRecords.filter(r => r.type === 'purchase').forEach(record => {
     if (!buyerDues[record.userName]) {

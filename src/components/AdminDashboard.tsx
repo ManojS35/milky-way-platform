@@ -9,8 +9,8 @@ import { Users, TrendingUp, ShoppingCart, Truck, CreditCard, Calendar, DollarSig
 import DailyRecordCalendar from './DailyRecordCalendar';
 
 interface DailyRecord {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName: string;
   userRole: 'buyer' | 'milkman';
   date: string;
@@ -21,7 +21,7 @@ interface DailyRecord {
 }
 
 interface Milkman {
-  id: number;
+  id: string;
   name: string;
   username: string;
   location: string;
@@ -36,7 +36,7 @@ interface Milkman {
 }
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: string;
@@ -50,7 +50,7 @@ interface DairyRates {
 }
 
 interface Product {
-  id: number;
+  id: string;
   name: string;
   category: 'feed' | 'dairy_product';
   price: number;
@@ -58,10 +58,10 @@ interface Product {
 }
 
 interface ProductSale {
-  id: number;
-  productId: number;
+  id: string;
+  productId: string;
   productName: string;
-  buyerId: number;
+  buyerId: string;
   buyerName: string;
   buyerRole: 'buyer' | 'milkman';
   quantity: number;
@@ -88,26 +88,26 @@ interface AdminDashboardProps {
   dailyRecords: DailyRecord[];
   dairyRates: DairyRates;
   payments: Array<{
-    id: number;
-    buyerId: number;
+    id: string;
+    buyerId: string;
     buyerName: string;
     amount: number;
     paymentMethod: string;
     transactionId: string;
     date: string;
   }>;
-  buyerDues: { [key: string]: { userId: number; userName: string; totalPurchases: number; totalPayments: number; due: number } };
+  buyerDues: { [key: string]: { userId: string; userName: string; totalPurchases: number; totalPayments: number; due: number } };
   products: Product[];
   productSales: ProductSale[];
-  onApproveMilkman: (milkmanId: number) => void;
-  onRejectMilkman: (milkmanId: number) => void;
+  onApproveMilkman: (milkmanId: string) => void;
+  onRejectMilkman: (milkmanId: string) => void;
   onUpdateDairyRates: (milkmanRate: number, buyerRate: number) => void;
-  onPayMilkman: (milkmanId: number, amount: number) => void;
-  onAddDailyRecord: (userId: number, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => void;
+  onPayMilkman: (milkmanId: string, amount: number) => void;
+  onAddDailyRecord: (userId: string, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => void;
   onAddProduct: (name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => void;
-  onUpdateProduct: (id: number, name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => void;
-  onDeleteProduct: (id: number) => void;
-  onSellProduct: (productId: number, buyerId: number, buyerName: string, buyerRole: 'buyer' | 'milkman', quantity: number) => void;
+  onUpdateProduct: (id: string, name: string, category: 'feed' | 'dairy_product', price: number, unit: string) => void;
+  onDeleteProduct: (id: string) => void;
+  onSellProduct: (productId: string, buyerId: string, buyerName: string, buyerRole: 'buyer' | 'milkman', quantity: number) => void;
 }
 
 const AdminDashboard = ({ 
@@ -144,8 +144,8 @@ const AdminDashboard = ({
   });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productSaleForm, setProductSaleForm] = useState({
-    productId: 0,
-    buyerId: 0,
+    productId: '',
+    buyerId: '',
     quantity: 0
   });
   const [adminProfile, setAdminProfile] = useState<AdminProfile>({
@@ -209,7 +209,7 @@ const AdminDashboard = ({
           buyer.role as 'buyer' | 'milkman', 
           productSaleForm.quantity
         );
-        setProductSaleForm({ productId: 0, buyerId: 0, quantity: 0 });
+        setProductSaleForm({ productId: '', buyerId: '', quantity: 0 });
       }
     }
   };
@@ -490,9 +490,9 @@ const AdminDashboard = ({
                     <select 
                       className="w-full px-3 py-2 border rounded-md"
                       value={productSaleForm.productId}
-                      onChange={(e) => setProductSaleForm({...productSaleForm, productId: parseInt(e.target.value)})}
+                      onChange={(e) => setProductSaleForm({...productSaleForm, productId: e.target.value})}
                     >
-                      <option value={0}>Select Product</option>
+                      <option value="">Select Product</option>
                       {products.map(product => (
                         <option key={product.id} value={product.id}>
                           {product.name} - ₹{product.price}/{product.unit}
@@ -505,9 +505,9 @@ const AdminDashboard = ({
                     <select 
                       className="w-full px-3 py-2 border rounded-md"
                       value={productSaleForm.buyerId}
-                      onChange={(e) => setProductSaleForm({...productSaleForm, buyerId: parseInt(e.target.value)})}
+                      onChange={(e) => setProductSaleForm({...productSaleForm, buyerId: e.target.value})}
                     >
-                      <option value={0}>Select Customer</option>
+                      <option value="">Select Customer</option>
                       {users.filter(u => u.role !== 'admin').map(user => (
                         <option key={user.id} value={user.id}>
                           {user.username} ({user.role})
@@ -768,7 +768,7 @@ const AdminDashboard = ({
                   <h3 className="font-medium mb-4">Customer Dues</h3>
                   <div className="space-y-2">
                     {Object.values(buyerDues).map(buyer => (
-                      <div key={buyer.userName} className="flex justify-between p-2 bg-gray-50 rounded">
+                      <div key={buyer.userId} className="flex justify-between p-2 bg-gray-50 rounded">
                         <span>{buyer.userName}</span>
                         <span className="font-bold">₹{buyer.due}</span>
                       </div>
