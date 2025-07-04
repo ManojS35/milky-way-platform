@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -120,7 +121,6 @@ const Index = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -134,11 +134,6 @@ const Index = () => {
           
           if (error) {
             console.error('Error fetching profile:', error);
-            toast({
-              title: "Profile Error",
-              description: "Could not fetch user profile. Please try logging in again.",
-              variant: "destructive"
-            });
           } else {
             setProfile(profileData);
           }
@@ -170,8 +165,6 @@ const Index = () => {
 
   const loadApplicationData = async () => {
     try {
-      console.log('Loading application data...');
-      
       // Load dairy rates
       const { data: ratesData } = await supabase
         .from('dairy_rates')
@@ -273,31 +266,8 @@ const Index = () => {
         })));
       }
 
-      // Load milkman payments
-      const { data: milkmanPaymentsData } = await supabase
-        .from('milkman_payments')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (milkmanPaymentsData) {
-        setMilkmanPayments(milkmanPaymentsData.map(p => ({
-          id: p.id,
-          milkmanId: p.milkman_id,
-          milkmanName: p.milkman_name,
-          amount: p.amount,
-          paymentMethod: p.payment_method,
-          transactionId: p.transaction_id,
-          date: p.date
-        })));
-      }
-
     } catch (error) {
       console.error('Error loading data:', error);
-      toast({
-        title: "Data Loading Error",
-        description: "Failed to load application data. Please refresh the page.",
-        variant: "destructive"
-      });
     }
   };
 
@@ -314,57 +284,19 @@ const Index = () => {
         title: "Logged Out",
         description: "You have been logged out successfully.",
       });
-      navigate('/');
+      navigate('/auth');
     }
   };
 
-  // Redirect to home if not authenticated
+  // Redirect to auth if not authenticated
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   if (!user || !profile) {
-    navigate('/');
+    navigate('/auth');
     return null;
   }
-
-  // Create AppUser objects for dashboard components
-  const createAppUser = (user: User, profile: Profile): AppUser => ({
-    id: user.id,
-    role: profile.role,
-    username: profile.username,
-    email: user.email
-  });
-
-  // Calculate buyer dues
-  const calculateBuyerDues = () => {
-    const dues: { [buyerId: string]: number } = {};
-    
-    dailyRecords.forEach(record => {
-      if (record.type === 'purchase') {
-        if (!dues[record.userId]) {
-          dues[record.userId] = 0;
-        }
-        dues[record.userId] += record.amount;
-      }
-    });
-
-    // Subtract payments
-    payments.forEach(payment => {
-      if (dues[payment.buyerId]) {
-        dues[payment.buyerId] -= payment.amount;
-      }
-    });
-
-    return dues;
-  };
 
   // Implement daily record functionality
   const handleAddDailyRecord = async (userId: string, userName: string, userRole: 'buyer' | 'milkman', date: string, quantity: number, type: 'purchase' | 'supply') => {
@@ -509,6 +441,37 @@ const Index = () => {
     }
   };
 
+  // Create AppUser objects for dashboard components
+  const createAppUser = (user: User, profile: Profile): AppUser => ({
+    id: user.id,
+    role: profile.role,
+    username: profile.username,
+    email: user.email
+  });
+
+  // Calculate buyer dues
+  const calculateBuyerDues = () => {
+    const dues: { [buyerId: string]: number } = {};
+    
+    dailyRecords.forEach(record => {
+      if (record.type === 'purchase') {
+        if (!dues[record.userId]) {
+          dues[record.userId] = 0;
+        }
+        dues[record.userId] += record.amount;
+      }
+    });
+
+    // Subtract payments
+    payments.forEach(payment => {
+      if (dues[payment.buyerId]) {
+        dues[payment.buyerId] -= payment.amount;
+      }
+    });
+
+    return dues;
+  };
+
   // Render appropriate dashboard based on user role
   switch (profile.role) {
     case 'admin':
@@ -555,20 +518,7 @@ const Index = () => {
         onMilkmanPayment={handleMilkmanPayment}
       />;
     default:
-      return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Invalid User Role</h1>
-            <p className="text-gray-600 mb-4">Your account has an invalid role. Please contact support.</p>
-            <button 
-              onClick={handleLogout}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      );
+      return <div>Invalid user role</div>;
   }
 };
 
